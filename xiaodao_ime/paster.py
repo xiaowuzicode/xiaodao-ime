@@ -35,6 +35,16 @@ def _send_cmd_v() -> None:
     Quartz.CGEventPost(Quartz.kCGHIDEventTap, key_up)
 
 
+def copy_to_clipboard(text: str) -> bool:
+    """仅复制到剪贴板（历史菜单用），不触发粘贴、不恢复原内容。"""
+    try:
+        _write_clipboard_text(text)
+        return True
+    except Exception as e:
+        log.warning("复制到剪贴板失败：%s", e)
+        return False
+
+
 def paste_text(text: str, restore_delay: float = CLIPBOARD_RESTORE_DELAY) -> bool:
     """把 text 粘贴到当前焦点输入框。成功返回 True。
 

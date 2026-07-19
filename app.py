@@ -24,9 +24,11 @@ from xiaodao_ime.config import (  # noqa: E402
     LOG_FILE,
     MODEL_PATH,
 )
+from xiaodao_ime.history import History  # noqa: E402
 from xiaodao_ime.hotkey import HOTKEY_CHOICES, HotkeyController  # noqa: E402
 from xiaodao_ime.logger import get_logger  # noqa: E402
-from xiaodao_ime.polisher import Polisher  # noqa: E402
+from xiaodao_ime.paster import copy_to_clipboard  # noqa: E402
+from xiaodao_ime.polisher import Polisher, get_styles  # noqa: E402
 from xiaodao_ime.recorder import Recorder  # noqa: E402
 from xiaodao_ime.settings import Settings  # noqa: E402
 from xiaodao_ime.transcriber import Transcriber  # noqa: E402
@@ -62,20 +64,30 @@ class XiaodaoIME(rumps.App):
         for item in self._hotkey_items.values():
             hotkey_menu.add(item)
         self._polish_item = rumps.MenuItem("AI 润色", callback=self.toggle_polish)
+        self._style_menu = rumps.MenuItem("润色风格")
         settings_menu = rumps.MenuItem("设置")
         settings_menu.add(hotkey_menu)
         settings_menu.add(self._polish_item)
+        settings_menu.add(self._style_menu)
         settings_menu.add(rumps.MenuItem("打开配置文件", callback=self.open_settings))
         settings_menu.add(rumps.MenuItem("重新加载配置", callback=self.reload_settings))
+
+        self._history = History(self._settings)
+        self._history_menu = rumps.MenuItem("历史")
+        self._history_rendered = -1
 
         self.menu = [
             self._status_item,
             None,
             settings_menu,
+            self._history_menu,
             rumps.MenuItem("打开日志", callback=self.open_log),
             rumps.MenuItem("退出", callback=self.quit_app),
         ]
         self._sync_menu_state()
+        # rumps.Timer 回调在主线程执行，用于安全地重绘历史子菜单
+        self._history_timer = rumps.Timer(self._refresh_history, 2)
+        self._history_timer.start()
 
         self._recorder = Recorder()
         self._transcriber = Transcriber()
@@ -105,6 +117,7 @@ class XiaodaoIME(rumps.App):
             self._hotkey = HotkeyController(
                 self._recorder, self._transcriber, on_status=self._set_status,
                 polisher=self._polisher, settings=self._settings,
+                history=self._history,
                 hotkey=self._settings.data.get("hotkey", "alt_l"),
             )
             self._hotkey.start()
@@ -132,6 +145,54 @@ class XiaodaoIME(rumps.App):
         provider = polish.get("provider", "openai")
         model = polish.get("model") or "?"
         self._polish_item.title = f"AI 润色（{provider} / {model}）"
+        self._rebuild_style_menu()
+
+    def _rebuild_style_menu(self) -> None:
+        """按当前（含自定义）风格列表重建「润色风格」子菜单。"""
+        current = self._settings.data.get("polish", {}).get("style", "润色")
+        try:
+            self._style_menu.clear()
+        except Exception:
+            pass
+        for name in get_styles(self._settings):
+            item = rumps.MenuItem(name, callback=self._make_style_cb(name))
+            item.state = 1 if name == current else 0
+            self._style_menu.add(item)
+
+    def _make_style_cb(self, name: str):
+        def _cb(_):
+            self._settings.data.setdefault("polish", {})["style"] = name
+            self._settings.save()
+            self._sync_menu_state()
+            log.info("润色风格已切换为：%s", name)
+        return _cb
+
+    def _refresh_history(self, _) -> None:
+        """rumps.Timer 主线程回调：历史有新条目时重绘子菜单。"""
+        if self._history.version == self._history_rendered:
+            return
+        self._history_rendered = self._history.version
+        try:
+            self._history_menu.clear()
+        except Exception:
+            pass
+        entries = self._history.recent(10)
+        if not entries:
+            placeholder = rumps.MenuItem("（暂无记录）")
+            self._history_menu.add(placeholder)
+            return
+        for entry in entries:
+            text = entry.get("final", "")
+            label = text if len(text) <= 24 else text[:24] + "…"
+            self._history_menu.add(
+                rumps.MenuItem(label, callback=self._make_copy_cb(text))
+            )
+
+    def _make_copy_cb(self, text: str):
+        def _cb(_):
+            if copy_to_clipboard(text):
+                log.info("历史条目已复制（%d 字符）", len(text))
+        return _cb
 
     def _make_hotkey_cb(self, name: str):
         def _cb(_):

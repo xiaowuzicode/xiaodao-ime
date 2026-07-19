@@ -27,7 +27,15 @@ DEFAULTS = {
         "api_key": "",
         "base_url": "https://api.deepseek.com",
         "timeout": 30,
+        # 润色风格：润色 / 书面化 / 轻度纠错 / 翻译成英文 / 会议纪要（内置），
+        # styles 里可自定义新风格或覆盖内置：{"风格名": "system 提示词"}
+        "style": "润色",
+        "styles": {},
     },
+    # 录音开始/结束提示音
+    "sounds": True,
+    # 输入历史（本地 data/history.jsonl，菜单可查看/复制）
+    "history": {"enabled": True, "max_items": 50},
     # 热词（人名/产品名/术语）：注入润色提示词，辅助纠正同音错字
     "hotwords": [],
     # 离线替换表：转写后无条件字符串替换（不依赖 LLM），如 {"欧朵": "Ordo"}

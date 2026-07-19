@@ -7,6 +7,8 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODELS_DIR = os.path.join(PROJECT_ROOT, "models")
 LOGS_DIR = os.path.join(PROJECT_ROOT, "logs")
 LOG_FILE = os.path.join(LOGS_DIR, "xiaodao-ime.log")
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+HISTORY_FILE = os.path.join(DATA_DIR, "history.jsonl")
 
 # 转写模型：SenseVoice Small，Q8_0 量化（中文最强、自带标点、速度极快）
 MODEL_FILENAME = os.environ.get("XIAODAO_MODEL", "SenseVoiceSmall-Q8_0.gguf")
@@ -23,6 +25,9 @@ CHANNELS = 1
 
 # 防误触：按住时长小于该秒数的录音直接丢弃
 MIN_HOLD_SECONDS = 0.4
+
+# 双击热键进入「锁定录音」的两次按下间隔上限（秒）
+DOUBLE_TAP_WINDOW = 0.35
 
 # 粘贴后恢复原剪贴板的延迟（秒）
 CLIPBOARD_RESTORE_DELAY = 0.4

@@ -16,18 +16,49 @@ from xiaodao_ime.logger import get_logger
 
 log = get_logger(__name__)
 
-SYSTEM_PROMPT = (
-    "你是语音输入法的润色引擎。用户消息是一段语音转写的文本（中文为主，可能中英混杂）。"
-    "你的任务：去掉口水词（嗯、啊、那个、就是说、然后然后 等）、修正同音或近音错字、"
-    "规范标点符号。保持原意和语气，不增删信息，不回答或评论文本内容。"
-    "只输出润色后的文本本身，不要任何解释或前后缀。"
-)
+_PREFIX = "你是语音输入法的后处理引擎。用户消息是一段语音转写的文本（中文为主，可能中英混杂）。"
+_SUFFIX = "不回答或评论文本内容，只输出结果本身，不要任何解释或前后缀。"
+
+# 内置润色风格；settings.json 的 polish.styles 可覆盖或新增（同名覆盖内置）
+BUILTIN_STYLES = {
+    "润色": (
+        "你的任务：去掉口水词（嗯、啊、那个、就是说、然后然后 等）、修正同音或近音错字、"
+        "规范标点符号。保持原意和语气，不增删信息。"
+    ),
+    "书面化": (
+        "你的任务：把口语转写整理成规范书面语——去口水词、修错字、规范标点，"
+        "并适度重组句式使表达更清晰专业，可合并明显冗余，但不得改变事实、立场与信息量。"
+    ),
+    "轻度纠错": (
+        "你的任务：只修正同音/近音错字和标点，尽量保留原始口语表达，除明显口水词外不删任何内容。"
+    ),
+    "翻译成英文": (
+        "你的任务：先在心里修正转写错字，然后把内容翻译成自然地道的英文，保持原有语气。只输出英文。"
+    ),
+    "会议纪要": (
+        "你的任务：把口述内容整理成要点式纪要（用「- 」列表），修正错字、合并重复，保留所有信息点。"
+    ),
+}
+DEFAULT_STYLE = "润色"
+
+SYSTEM_PROMPT = _PREFIX + BUILTIN_STYLES[DEFAULT_STYLE] + _SUFFIX  # 兼容旧引用
 
 
-def build_system_prompt(hotwords) -> str:
+def get_styles(settings) -> dict:
+    """内置风格 + 用户自定义风格（settings polish.styles，同名覆盖）。"""
+    styles = dict(BUILTIN_STYLES)
+    custom = settings.data.get("polish", {}).get("styles") or {}
+    for name, prompt in custom.items():
+        if name and prompt:
+            styles[name] = prompt
+    return styles
+
+
+def build_system_prompt(hotwords, style_prompt: str = None) -> str:
+    prompt = _PREFIX + (style_prompt or BUILTIN_STYLES[DEFAULT_STYLE]) + _SUFFIX
     if hotwords:
-        return SYSTEM_PROMPT + "\n常用专有名词（转写易错，优先按此拼写纠正）：" + "、".join(hotwords)
-    return SYSTEM_PROMPT
+        prompt += "\n常用专有名词（转写易错，优先按此拼写纠正）：" + "、".join(hotwords)
+    return prompt
 
 
 def apply_replacements(text: str, mapping: dict) -> str:
@@ -65,12 +96,15 @@ class Polisher:
             return None
         provider = conf.get("provider", "openai")
         hotwords = self._settings.data.get("hotwords", [])
+        styles = get_styles(self._settings)
+        style = conf.get("style") or DEFAULT_STYLE
+        system = build_system_prompt(hotwords, styles.get(style, styles[DEFAULT_STYLE]))
         t0 = time.perf_counter()
         try:
             if provider == "openai":
-                out = self._via_openai(text, conf, hotwords)
+                out = self._via_openai(text, conf, system)
             elif provider == "anthropic":
-                out = self._via_anthropic(text, conf, hotwords)
+                out = self._via_anthropic(text, conf, system)
             else:
                 log.warning("未知润色 provider: %r，跳过润色", provider)
                 return None
@@ -80,19 +114,20 @@ class Polisher:
         out = (out or "").strip()
         if not out:
             return None
-        log.info("润色完成（%s / %s），耗时 %.2fs", provider, conf.get("model"), time.perf_counter() - t0)
+        log.info("润色完成（%s / %s / %s），耗时 %.2fs",
+                 provider, conf.get("model"), style, time.perf_counter() - t0)
         return out
 
     # ---- providers ----
 
-    def _via_openai(self, text: str, conf: dict, hotwords) -> str:
+    def _via_openai(self, text: str, conf: dict, system: str) -> str:
         base_url = (conf.get("base_url") or "").rstrip("/")
         if not base_url:
             raise RuntimeError("请先在 settings.json 配置 polish.base_url（如 https://api.deepseek.com）")
         payload = {
             "model": conf.get("model") or "",
             "messages": [
-                {"role": "system", "content": build_system_prompt(hotwords)},
+                {"role": "system", "content": system},
                 {"role": "user", "content": text},
             ],
             "temperature": 0.2,
@@ -110,7 +145,7 @@ class Polisher:
             data = json.loads(resp.read().decode("utf-8"))
         return data["choices"][0]["message"]["content"]
 
-    def _via_anthropic(self, text: str, conf: dict, hotwords) -> str:
+    def _via_anthropic(self, text: str, conf: dict, system: str) -> str:
         import anthropic  # 延迟导入：仅该 provider 需要（pip install anthropic）
 
         api_key = conf.get("api_key") or None
@@ -123,7 +158,7 @@ class Polisher:
         response = client.messages.create(
             model=model,
             max_tokens=2048,
-            system=build_system_prompt(hotwords),
+            system=system,
             messages=[{"role": "user", "content": text}],
             timeout=conf.get("timeout", 30),
             **kwargs,

@@ -18,3 +18,7 @@ logs/*.err.log
 
 # 用户设置（本机个性化，不入库）
 settings.json
+
+# 打包产物与本地数据
+dist/
+data/
