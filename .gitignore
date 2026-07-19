@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# 模型文件（体积大，从 HuggingFace 单独下载，见 README）
+models/*.gguf
+models/.cache/
+
+# 日志
+logs/*.log
+logs/*.out.log
+logs/*.err.log
+
+# 系统
+.DS_Store
