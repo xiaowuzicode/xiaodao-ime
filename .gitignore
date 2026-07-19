@@ -15,3 +15,6 @@ logs/*.err.log
 
 # 系统
 .DS_Store
+
+# 用户设置（本机个性化，不入库）
+settings.json

@@ -1,0 +1,15 @@
+{
+  "hotkey": "alt_l",
+  "polish": {
+    "enabled": false,
+    "provider": "openai",
+    "model": "deepseek-chat",
+    "api_key": "sk-你的key",
+    "base_url": "https://api.deepseek.com",
+    "timeout": 30
+  },
+  "hotwords": ["Ordo", "小岛AI", "SenseVoice"],
+  "replacements": {
+    "欧朵": "Ordo"
+  }
+}

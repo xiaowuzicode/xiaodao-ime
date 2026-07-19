@@ -14,20 +14,22 @@
 app.py（rumps 菜单栏，主线程）
   └─ xiaodao_ime/
        ├─ config.py       路径与常量
+       ├─ settings.py     用户设置（settings.json 读写、默认值深合并）
        ├─ logger.py       日志（logs/xiaodao-ime.log，带时间戳/文件名行号）
        ├─ transcriber.py  SenseVoice GGUF 常驻内存，封装 transcribe.cpp
        ├─ recorder.py     sounddevice 录音（16kHz 单声道 float32）
+       ├─ polisher.py     可选 LLM 润色（OpenAI 兼容 / Anthropic，fail-open）
        ├─ paster.py       NSPasteboard 存/取 + Quartz CGEvent 模拟 Cmd+V
        └─ hotkey.py       pynput 全局监听 + 按住说话状态机（含防误触）
 ```
 
-线程模型：`rumps` 跑主线程；`pynput` 监听、`sounddevice` 录音回调、转写各跑子线程，互不阻塞。
+线程模型：`rumps` 跑主线程；`pynput` 监听、`sounddevice` 录音回调、转写/润色各跑子线程，互不阻塞。
 
-菜单栏图标状态：🏝️ 待机 / 🎙️ 录音中 / ✍️ 转写中。菜单项：「打开日志」「退出」。
+菜单栏图标状态：🏝️ 待机 / 🎙️ 录音中 / ✍️ 转写中 / 🪄 润色中。菜单项：「设置」（热键、AI 润色、配置文件）「打开日志」「退出」。
 
 ### 交互与防误触规则
-- 按住**左 Option**（`pynput.Key.alt_l`）开始录音，松开停止并转写、粘贴。
-- 按住左 Option 期间若按下**任何其他键**（说明你在用 ⌥+x 系统快捷键）→ 立即取消本次录音，不转写不粘贴。
+- 按住**热键**（默认左 Option，可在「设置 → 热键」切换为右 Option / 右 Command / F19）开始录音，松开停止并转写、（可选）润色、粘贴。
+- 按住热键期间若按下**任何其他键**（说明你在用组合快捷键）→ 立即取消本次录音，不转写不粘贴。
 - 按住时长 **< 0.4s** → 直接丢弃（防误碰）。
 - 转写结果为空/纯空白 → 不粘贴。
 - 粘贴方式：先保存当前剪贴板 → 写入转写文字 → Cmd+V → ~0.4s 后恢复原剪贴板，尽量不破坏你的复制内容。
@@ -69,11 +71,42 @@ HF_ENDPOINT=https://hf-mirror.com .venv/bin/python -c "..."   # 同上
 
 ### 冒烟测试（不依赖热键/麦克风）
 
-用系统 `say` 合成语音，跑完整「加载模型 → 转写 → 断言」链路：
-
 ```bash
-.venv/bin/python test_transcribe.py
+.venv/bin/python test_transcribe.py   # say 合成语音 → 加载模型 → 转写 → 断言
+.venv/bin/python test_polish.py       # 设置/润色模块离线测试（不联网）
 ```
+
+---
+
+## 设置与 AI 润色
+
+设置存在项目根目录 `settings.json`（首次点「设置 → 打开配置文件」自动生成，不入 git），完整示例见 `settings.example.json`。改完文件后点「设置 → 重新加载配置」即可生效，热键和润色开关也可直接在菜单里切。
+
+### AI 润色（可选，默认关闭）
+
+开启后，转写文本会过一遍大模型：去口水词（嗯/那个/就是说）、修正同音错字、规范标点。**Key 用你自己的大模型 API Key**，两种 provider：
+
+| provider | 适用 | 配置 |
+|---|---|---|
+| `openai`（默认） | DeepSeek / Kimi / GLM / OpenAI / ollama 本地模型等一切 OpenAI 兼容端点 | `base_url` + `api_key` + `model` |
+| `anthropic` | Anthropic API | `api_key`（或环境变量 `ANTHROPIC_API_KEY`），需 `pip install anthropic` |
+
+常用 `base_url`（填到 `/chat/completions` 的上一级）：
+
+- DeepSeek：`https://api.deepseek.com`（model `deepseek-chat`）
+- Kimi：`https://api.moonshot.cn/v1`（model `moonshot-v1-8k` 等）
+- 智谱 GLM：`https://open.bigmodel.cn/api/paas/v4`（model `glm-4-flash` 等）
+- OpenAI：`https://api.openai.com/v1`
+- ollama 本地：`http://localhost:11434/v1`（无需 key，全离线）
+
+润色是 **fail-open** 的：API 超时/报错/被拒一律回退原始转写，绝不因为润色挂了导致不出字。
+
+### 热词与离线替换
+
+- `hotwords`：人名/产品名/术语列表，注入润色提示词，辅助大模型纠正同音错字（如"欧朵"→"Ordo"）；
+- `replacements`：离线字符串替换表，转写后无条件执行、零延迟、不依赖 LLM，适合 100% 确定的固定纠错。
+
+路线图与豆包输入法对标见 [ROADMAP.md](ROADMAP.md)。
 
 ---
 
