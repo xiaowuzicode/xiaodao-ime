@@ -89,15 +89,19 @@ class Polisher:
             return bool(conf.get("base_url"))
         return True  # anthropic 可走环境变量 ANTHROPIC_API_KEY
 
-    def polish(self, text: str):
-        """返回润色后的文本；未启用或失败返回 None（调用方用原文）。"""
+    def polish(self, text: str, style: str = None):
+        """返回润色后的文本；未启用或失败返回 None（调用方用原文）。
+
+        style 为场景感知的风格覆盖（app_styles 匹配结果），None 时用全局默认风格。
+        """
         conf = self._conf
         if not conf.get("enabled") or not text.strip():
             return None
         provider = conf.get("provider", "openai")
         hotwords = self._settings.data.get("hotwords", [])
         styles = get_styles(self._settings)
-        style = conf.get("style") or DEFAULT_STYLE
+        if not style or style not in styles:
+            style = conf.get("style") or DEFAULT_STYLE
         system = build_system_prompt(hotwords, styles.get(style, styles[DEFAULT_STYLE]))
         t0 = time.perf_counter()
         try:

@@ -21,6 +21,8 @@ class History:
         self._lock = threading.Lock()
         self._items: list = []
         self.version = 0
+        self.total_count = 0   # 累计出字次数（全量，含已滚出内存的旧记录）
+        self.total_chars = 0   # 累计出字字数
         self._load()
 
     @property
@@ -39,10 +41,18 @@ class History:
             return
         try:
             with open(self._path, encoding="utf-8") as f:
-                lines = f.readlines()[-self._max_items():]
-            self._items = [json.loads(line) for line in lines if line.strip()]
+                lines = [line for line in f if line.strip()]
+            for line in lines:
+                try:
+                    entry = json.loads(line)
+                    self.total_count += 1
+                    self.total_chars += len(entry.get("final", ""))
+                except Exception:
+                    continue
+            self._items = [json.loads(line) for line in lines[-self._max_items():]]
             self.version += 1
-            log.info("已加载历史 %d 条", len(self._items))
+            log.info("已加载历史 %d 条（累计 %d 次 / %d 字）",
+                     len(self._items), self.total_count, self.total_chars)
         except Exception as e:
             log.warning("加载历史失败：%s", e)
 
@@ -53,6 +63,8 @@ class History:
         with self._lock:
             self._items.append(entry)
             self._items = self._items[-self._max_items():]
+            self.total_count += 1
+            self.total_chars += len(final)
             self.version += 1
         try:
             os.makedirs(os.path.dirname(self._path), exist_ok=True)

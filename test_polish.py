@@ -84,6 +84,17 @@ def test_styles():
     print("PASS: styles")
 
 
+def test_pick_style():
+    from xiaodao_ime.context import pick_style
+    mapping = {"com.tencent.xinWeChat": "轻度纠错", "Mail": "书面化", "Terminal": "关闭"}
+    assert pick_style("微信", "com.tencent.xinWeChat", mapping) == "轻度纠错"  # bundle id 优先
+    assert pick_style("mail", "com.apple.mail", mapping) == "书面化"          # 应用名忽略大小写
+    assert pick_style("Terminal", "", mapping) == "关闭"
+    assert pick_style("Safari", "com.apple.Safari", mapping) is None          # 无匹配走默认
+    assert pick_style("Mail", "x", None) is None
+    print("PASS: pick_style")
+
+
 def test_history():
     import xiaodao_ime.history as history_mod
     with tempfile.TemporaryDirectory() as d:
@@ -99,6 +110,10 @@ def test_history():
         # 空文本不入库
         h.append("x", "   ")
         assert len(h.recent(10)) == 1
+        # 累计统计（重载后仍保留全量计数）
+        assert h.total_count == 1 and h.total_chars == len("润色后的文本")
+        h3 = history_mod.History(s, path=os.path.join(d, "history.jsonl"))
+        assert h3.total_count == 1 and h3.total_chars == len("润色后的文本")
     print("PASS: history")
 
 
@@ -108,5 +123,6 @@ if __name__ == "__main__":
     test_settings_merge_and_save()
     test_polisher_fail_open()
     test_styles()
+    test_pick_style()
     test_history()
     print("\n全部离线测试通过 ✅")

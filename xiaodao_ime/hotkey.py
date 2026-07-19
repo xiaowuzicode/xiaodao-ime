@@ -20,6 +20,7 @@ from typing import Callable, Optional
 from pynput import keyboard
 
 from xiaodao_ime.config import DOUBLE_TAP_WINDOW, MIN_HOLD_SECONDS
+from xiaodao_ime.context import STYLE_OFF, frontmost_app, pick_style
 from xiaodao_ime.feedback import play
 from xiaodao_ime.logger import get_logger
 from xiaodao_ime.paster import paste_text
@@ -191,10 +192,21 @@ class HotkeyController:
             if self._settings is not None:
                 text = apply_replacements(text, self._settings.data.get("replacements"))
             if self._polisher is not None and self._polisher.enabled:
-                self._status("polishing")
-                polished = self._polisher.polish(text)
-                if polished:
-                    text = polished  # 润色失败时 polish 返回 None，直接用原始转写
+                # 场景感知：按前台 App 匹配润色风格（或对该 App 关闭润色）
+                app_name, bundle_id = frontmost_app()
+                style = None
+                if self._settings is not None:
+                    style = pick_style(app_name, bundle_id,
+                                       self._settings.data.get("app_styles"))
+                if app_name or bundle_id:
+                    log.info("前台应用：%s（%s）→ 风格 %s", app_name, bundle_id, style or "默认")
+                if style in STYLE_OFF:
+                    log.info("该应用已配置关闭润色，直出转写")
+                else:
+                    self._status("polishing")
+                    polished = self._polisher.polish(text, style=style)
+                    if polished:
+                        text = polished  # 润色失败时 polish 返回 None，直接用原始转写
             paste_text(text)
             if self._history is not None:
                 self._history.append(raw, text)

@@ -41,6 +41,12 @@
 - ✅ 独立 .app：`scripts/make_app.sh` 生成 ad-hoc 签名的 App bundle，权限授给 App 本身，可进登录项自启。
 - ⏳ 首次启动引导（权限检测 + 跳转设置页）——移入 P2.5。
 
+## P2.5（第三轮已实现，借鉴 superwhisper / Wispr Flow）
+
+- ✅ **场景感知润色**（superwhisper 王牌）：按前台 App（bundle id / 应用名）自动切换润色风格或关闭润色，`app_styles` 配置。
+- ✅ **输入统计**（Wispr Flow 增长神器）：菜单栏累计段数/字数/预计节省时间。
+- ✅ **录音计时**：录音中菜单栏显示已录秒数（锁定录音的「还在录」确认）。
+
 ## P3（大功能）
 
 - **流式实时上屏**：transcribe.cpp 支持 streaming，边说边出字（需处理已上屏文本的修正回退，交互复杂度高）。

@@ -8,6 +8,11 @@
     "base_url": "https://api.deepseek.com",
     "timeout": 30
   },
+  "app_styles": {
+    "com.tencent.xinWeChat": "轻度纠错",
+    "Mail": "书面化",
+    "Terminal": "关闭"
+  },
   "hotwords": ["Ordo", "小岛AI", "SenseVoice"],
   "replacements": {
     "欧朵": "Ordo"

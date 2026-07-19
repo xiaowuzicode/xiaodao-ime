@@ -32,6 +32,9 @@ DEFAULTS = {
         "style": "润色",
         "styles": {},
     },
+    # 场景感知润色：前台 App -> 润色风格。键为 bundle id 或应用名，值为风格名或 "关闭"。
+    # 例：{"com.tencent.xinWeChat": "轻度纠错", "Mail": "书面化", "Terminal": "关闭"}
+    "app_styles": {},
     # 录音开始/结束提示音
     "sounds": True,
     # 输入历史（本地 data/history.jsonl，菜单可查看/复制）

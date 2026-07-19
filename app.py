@@ -8,6 +8,7 @@ rumps 必须运行在主线程；pynput 监听、录音回调、转写/润色均
 import os
 import subprocess
 import sys
+import time
 
 # 保证以「项目根目录」为导入根，使 `xiaodao_ime` 绝对导入可用
 _ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -75,19 +76,25 @@ class XiaodaoIME(rumps.App):
         self._history = History(self._settings)
         self._history_menu = rumps.MenuItem("历史")
         self._history_rendered = -1
+        self._stats_item = rumps.MenuItem("统计")  # 无 callback => 置灰展示
 
         self.menu = [
             self._status_item,
             None,
             settings_menu,
             self._history_menu,
+            self._stats_item,
             rumps.MenuItem("打开日志", callback=self.open_log),
             rumps.MenuItem("退出", callback=self.quit_app),
         ]
         self._sync_menu_state()
-        # rumps.Timer 回调在主线程执行，用于安全地重绘历史子菜单
+        # rumps.Timer 回调在主线程执行：重绘历史/统计 + 录音计时
         self._history_timer = rumps.Timer(self._refresh_history, 2)
         self._history_timer.start()
+        self._state = "idle"
+        self._rec_started = 0.0
+        self._tick_timer = rumps.Timer(self._tick, 1)
+        self._tick_timer.start()
 
         self._recorder = Recorder()
         self._transcriber = Transcriber()
@@ -167,11 +174,22 @@ class XiaodaoIME(rumps.App):
             log.info("润色风格已切换为：%s", name)
         return _cb
 
+    def _tick(self, _) -> None:
+        """每秒回调：录音中在菜单栏显示已录时长（尤其锁定录音时的「还在录」确认）。"""
+        if self._state == "recording" and self._rec_started:
+            self.title = f"{ICON_RECORDING} {int(time.time() - self._rec_started)}s"
+
     def _refresh_history(self, _) -> None:
-        """rumps.Timer 主线程回调：历史有新条目时重绘子菜单。"""
+        """rumps.Timer 主线程回调：历史有新条目时重绘子菜单与统计。"""
         if self._history.version == self._history_rendered:
             return
         self._history_rendered = self._history.version
+        # 统计：打字按 60 字/分钟、说话按 180 字/分钟估算节省时间
+        chars = self._history.total_chars
+        saved_min = int(chars / 90)
+        self._stats_item.title = (
+            f"统计：{self._history.total_count} 段 · {chars} 字 · 约省 {saved_min} 分钟"
+        )
         try:
             self._history_menu.clear()
         except Exception:
@@ -236,6 +254,9 @@ class XiaodaoIME(rumps.App):
     def _set_status(self, state: str) -> None:
         """由子线程调用，更新菜单栏图标与菜单文字。"""
         try:
+            self._state = state
+            if state == "recording":
+                self._rec_started = time.time()
             self.title = _STATUS_ICON.get(state, ICON_IDLE)
             self._status_item.title = _STATUS_LABEL.get(state, "状态：待机")
         except Exception as e:
