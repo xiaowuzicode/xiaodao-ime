@@ -1,17 +1,19 @@
 """全局热键与录音状态机。
 
-两种录音方式：
-  1. 按住说话：按住热键（默认左 Option，可在设置菜单切换）录音，松开即转写、（可选）润色、粘贴；
-  2. 双击锁定：0.35s 内连击两下热键进入「锁定录音」，可长段口述无需一直按着，
-     再按一下热键结束并转写。
+两种录音方式（settings.json 的 record_mode，可在菜单「设置 → 录音方式」切换）：
+  - toggle（默认）：单击热键开始录音，再单击一次结束并出字；
+  - hold：按住热键说话、松开出字；0.35s 内双击进入锁定录音，再按一下结束。
 
-防误触规则：
-  1. 录音期间（按住或锁定）若有任何其他按键按下（说明在用组合快捷键/开始打字），立即取消本次录音；
-  2. 单次按住时长 < 0.4s 的录音直接丢弃（但会被记为双击的第一击）；
-  3. 转写结果为空/纯空白时不粘贴。
+防误触规则（两种模式通用）：
+  1. 录音期间按下任何其他键（说明在用组合快捷键/开始打字），立即取消本次录音；
+  2. toggle 模式下「热键+其他键」的组合快捷键不会误触发开始录音（松开热键时已被标记跳过）；
+  3. 录音时长 < 0.4s 直接丢弃；转写结果为空不粘贴。
 
-pynput 的 on_press/on_release 在同一个监听线程内串行回调，因此状态无需加锁；
-耗时的转写+润色+粘贴放到独立 worker 线程，避免阻塞监听线程。
+macOS 兼容：pynput 在 macOS 上把左 Option 上报为通用 Key.alt（而非 Key.alt_l）、
+左 Command 上报为 Key.cmd，因此每个热键匹配一组按键而不是单个。
+
+pynput 的 on_press/on_release 在同一监听线程内串行回调，状态无需加锁；
+耗时的转写+润色+粘贴放到独立 worker 线程。
 """
 import threading
 import time
@@ -30,24 +32,41 @@ from xiaodao_ime.transcriber import Transcriber
 
 log = get_logger(__name__)
 
-# 可选热键：settings.json 的 hotkey 字段 -> (菜单显示名, pynput 键)
+
+def _keyset(*names) -> frozenset:
+    keys = set()
+    for name in names:
+        key = getattr(keyboard.Key, name, None)
+        if key is not None:
+            keys.add(key)
+    return frozenset(keys)
+
+
+# settings.json 的 hotkey 字段 -> (菜单显示名, 匹配按键集合)
+# macOS 上左侧修饰键上报为无方向的 Key.alt / Key.cmd，一并匹配
 HOTKEY_CHOICES = {
-    "alt_l": ("左 Option", keyboard.Key.alt_l),
-    "alt_r": ("右 Option", keyboard.Key.alt_r),
-    "cmd_r": ("右 Command", keyboard.Key.cmd_r),
-    "f19": ("F19", keyboard.Key.f19),
+    "alt_l": ("左 Option", _keyset("alt_l", "alt")),
+    "alt_r": ("右 Option", _keyset("alt_r")),
+    "cmd_r": ("右 Command", _keyset("cmd_r")),
+    "f19": ("F19", _keyset("f19")),
 }
 DEFAULT_HOTKEY = "alt_l"
 
+RECORD_MODES = {
+    "toggle": "单击开始 / 再击结束",
+    "hold": "按住说话（双击锁定）",
+}
+DEFAULT_MODE = "toggle"
+
 
 class HotkeyController:
-    """管理按住/锁定说话的完整生命周期。"""
+    """管理单击/按住两种录音方式的完整生命周期。"""
 
     def __init__(self, recorder: Recorder, transcriber: Transcriber,
                  on_status: Optional[Callable[[str], None]] = None,
                  min_hold: float = MIN_HOLD_SECONDS,
                  polisher=None, settings=None, history=None,
-                 hotkey: str = DEFAULT_HOTKEY):
+                 hotkey: str = DEFAULT_HOTKEY, mode: str = DEFAULT_MODE):
         self._recorder = recorder
         self._transcriber = transcriber
         self._on_status = on_status or (lambda s: None)
@@ -56,17 +75,20 @@ class HotkeyController:
         self._settings = settings
         self._history = history
         self._trigger = HOTKEY_CHOICES.get(hotkey, HOTKEY_CHOICES[DEFAULT_HOTKEY])[1]
+        self._mode = mode if mode in RECORD_MODES else DEFAULT_MODE
 
-        self._held = False            # 热键当前是否被按住
+        self._held = False              # 热键当前是否被按住
+        self._suppressed = False        # toggle：按住热键期间出现组合键，本次单击作废
         self._recording = False
-        self._locked = False          # 锁定录音模式（双击进入）
+        self._locked = False            # hold：锁定录音（双击进入）
         self._cancelled = False
         self._ignore_next_release = False
-        self._last_short_tap = 0.0    # 上一次「短按」的时间（用于识别双击）
+        self._last_short_tap = 0.0      # hold：上一次短按时间（识别双击）
         self._listener: Optional[keyboard.Listener] = None
 
+    # ---- 外部配置 ----
+
     def set_trigger(self, hotkey: str) -> None:
-        """切换按住说话的热键（来自设置菜单），录音中切换则先取消本次录音。"""
         if hotkey not in HOTKEY_CHOICES:
             log.warning("未知热键 %r，忽略", hotkey)
             return
@@ -75,12 +97,29 @@ class HotkeyController:
         self._trigger = HOTKEY_CHOICES[hotkey][1]
         log.info("热键已切换为：%s", HOTKEY_CHOICES[hotkey][0])
 
-    # ---- 状态回调 ----
+    def set_mode(self, mode: str) -> None:
+        if mode not in RECORD_MODES:
+            log.warning("未知录音方式 %r，忽略", mode)
+            return
+        if self._recording:
+            self._abort_recording("切换录音方式")
+        self._mode = mode
+        log.info("录音方式已切换为：%s", RECORD_MODES[mode])
+
+    # ---- 内部工具 ----
+
     def _status(self, state: str) -> None:
         try:
             self._on_status(state)
         except Exception as e:
             log.debug("状态回调出错：%s", e)
+
+    def _start_recording(self) -> None:
+        self._cancelled = False
+        self._recording = True
+        self._recorder.start()
+        play("start", self._settings)
+        self._status("recording")
 
     def _abort_recording(self, reason: str) -> None:
         self._recorder.abort()
@@ -88,81 +127,122 @@ class HotkeyController:
         self._locked = False
         self._cancelled = False
         self._held = False
+        self._suppressed = False
         log.info("录音取消（%s）", reason)
         play("cancel", self._settings)
         self._status("idle")
 
     # ---- 键盘事件 ----
+
     def _on_press(self, key) -> None:  # noqa: ANN001
         try:
-            if key == self._trigger:
-                if self._locked:
-                    # 锁定模式下再按一下：结束录音并处理
-                    self._locked = False
-                    self._ignore_next_release = True
-                    self._finish_and_process(check_min_hold=False)
-                    return
-                if self._held:
-                    return  # 忽略按住时的自动重复
-                self._held = True
-                self._cancelled = False
-                self._recording = True
-                self._recorder.start()
-                play("start", self._settings)
-                self._status("recording")
+            if key in self._trigger:
+                if self._mode == "toggle":
+                    self._press_toggle()
+                else:
+                    self._press_hold()
             else:
-                # 录音期间按下其他键 => 用户在用快捷键/打字，取消本次录音
-                if self._recording and not self._cancelled:
-                    if self._locked:
-                        self._abort_recording("锁定录音中按下其他键")
-                    elif self._held:
-                        self._cancelled = True
-                        self._recording = False
-                        self._recorder.abort()
-                        log.info("检测到组合键，取消本次录音（防误触）")
-                        self._status("idle")
+                self._press_other()
         except Exception as e:
             log.error("按键按下处理异常：%s", e)
 
     def _on_release(self, key) -> None:  # noqa: ANN001
         try:
-            if key != self._trigger:
+            if key not in self._trigger:
                 return
             if self._ignore_next_release:
                 self._ignore_next_release = False
                 return
-            if not self._held:
-                return
-            self._held = False
-            if self._cancelled:
-                self._cancelled = False
-                self._recording = False
-                return
-            if not self._recording:
-                return
-            duration = self._recorder.duration()
-            if duration < self._min_hold:
-                now = time.monotonic()
-                if now - self._last_short_tap < DOUBLE_TAP_WINDOW:
-                    # 双击：进入锁定录音（丢弃两次极短音频，重新开始录）
-                    self._last_short_tap = 0.0
-                    self._recorder.abort()
-                    self._recorder.start()
-                    self._locked = True
-                    log.info("双击热键，进入锁定录音（再按一下结束）")
-                    play("start", self._settings)
-                    self._status("recording")
-                    return
-                self._last_short_tap = now
-                self._recording = False
-                self._recorder.abort()
-                log.info("按住时长 %.3fs < %.2fs，丢弃本次录音", duration, self._min_hold)
-                self._status("idle")
-                return
-            self._finish_and_process()
+            if self._mode == "toggle":
+                self._release_toggle()
+            else:
+                self._release_hold()
         except Exception as e:
             log.error("按键松开处理异常：%s", e)
             self._status("idle")
+
+    def _press_other(self) -> None:
+        """录音期间其他按键 => 取消；toggle 按住期间其他按键 => 组合键，本次单击作废。"""
+        if self._recording and not self._cancelled:
+            if self._mode == "toggle" or self._locked:
+                self._abort_recording("录音中按下其他键")
+            elif self._held:
+                self._cancelled = True
+                self._recording = False
+                self._recorder.abort()
+                log.info("检测到组合键，取消本次录音（防误触）")
+                self._status("idle")
+        elif self._held:
+            self._suppressed = True
+
+    # ---- toggle：单击开始 / 再击结束 ----
+
+    def _press_toggle(self) -> None:
+        if self._recording:
+            # 第二击：结束录音并处理
+            self._ignore_next_release = True
+            self._finish_and_process()
+            return
+        if self._held:
+            return  # 长按自动重复
+        self._held = True
+        self._suppressed = False
+
+    def _release_toggle(self) -> None:
+        if not self._held:
+            return
+        self._held = False
+        if self._suppressed:
+            self._suppressed = False
+            return  # 刚才是组合快捷键，不开始录音
+        self._start_recording()
+        log.info("开始录音（单击模式，再按一次热键结束）")
+
+    # ---- hold：按住说话 + 双击锁定 ----
+
+    def _press_hold(self) -> None:
+        if self._locked:
+            self._locked = False
+            self._ignore_next_release = True
+            self._finish_and_process(check_min_hold=False)
+            return
+        if self._held:
+            return
+        self._held = True
+        self._start_recording()
+
+    def _release_hold(self) -> None:
+        if not self._held:
+            return
+        self._held = False
+        if self._cancelled:
+            self._cancelled = False
+            self._recording = False
+            return
+        if not self._recording:
+            return
+        duration = self._recorder.duration()
+        if duration < self._min_hold:
+            now = time.monotonic()
+            if now - self._last_short_tap < DOUBLE_TAP_WINDOW:
+                # 双击：进入锁定录音（丢弃两次极短音频，重新开始录）
+                self._last_short_tap = 0.0
+                self._recorder.abort()
+                self._recorder.start()
+                self._locked = True
+                log.info("双击热键，进入锁定录音（再按一下结束）")
+                play("start", self._settings)
+                self._status("recording")
+                return
+            self._last_short_tap = now
+            self._recording = False
+            self._recorder.abort()
+            log.info("按住时长 %.3fs < %.2fs，丢弃本次录音", duration, self._min_hold)
+            self._status("idle")
+            return
+        self._finish_and_process()
+
+    # ---- 收尾与后处理 ----
 
     def _finish_and_process(self, check_min_hold: bool = True) -> None:
         """停止录音，把音频交给 worker 线程转写/润色/粘贴。"""
@@ -216,13 +296,14 @@ class HotkeyController:
             self._status("idle")
 
     # ---- 生命周期 ----
+
     def start(self) -> None:
         """启动全局键盘监听（非阻塞）。"""
         self._listener = keyboard.Listener(
             on_press=self._on_press, on_release=self._on_release
         )
         self._listener.start()
-        log.info("全局热键监听已启动（按住说话；双击锁定录音）")
+        log.info("全局热键监听已启动（方式：%s）", RECORD_MODES[self._mode])
 
     def stop(self) -> None:
         if self._listener is not None:

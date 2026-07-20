@@ -15,8 +15,10 @@ log = get_logger(__name__)
 SETTINGS_PATH = os.path.join(PROJECT_ROOT, "settings.json")
 
 DEFAULTS = {
-    # 按住说话的热键：alt_l 左Option / alt_r 右Option / cmd_r 右Command / f19
+    # 录音热键：alt_l 左Option / alt_r 右Option / cmd_r 右Command / f19
     "hotkey": "alt_l",
+    # 录音方式：toggle 单击开始再击结束（默认）/ hold 按住说话+双击锁定
+    "record_mode": "toggle",
     # LLM 润色（可选）：去口水词、修正同音错字、规范标点。Key 为用户自备的大模型 API Key。
     "polish": {
         "enabled": False,

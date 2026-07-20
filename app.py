@@ -26,7 +26,7 @@ from xiaodao_ime.config import (  # noqa: E402
     MODEL_PATH,
 )
 from xiaodao_ime.history import History  # noqa: E402
-from xiaodao_ime.hotkey import HOTKEY_CHOICES, HotkeyController  # noqa: E402
+from xiaodao_ime.hotkey import HOTKEY_CHOICES, RECORD_MODES, HotkeyController  # noqa: E402
 from xiaodao_ime.logger import get_logger  # noqa: E402
 from xiaodao_ime.paster import copy_to_clipboard  # noqa: E402
 from xiaodao_ime.polisher import Polisher, get_styles  # noqa: E402
@@ -64,10 +64,18 @@ class XiaodaoIME(rumps.App):
         hotkey_menu = rumps.MenuItem("热键")
         for item in self._hotkey_items.values():
             hotkey_menu.add(item)
+        self._mode_items = {
+            name: rumps.MenuItem(label, callback=self._make_mode_cb(name))
+            for name, label in RECORD_MODES.items()
+        }
+        mode_menu = rumps.MenuItem("录音方式")
+        for item in self._mode_items.values():
+            mode_menu.add(item)
         self._polish_item = rumps.MenuItem("AI 润色", callback=self.toggle_polish)
         self._style_menu = rumps.MenuItem("润色风格")
         settings_menu = rumps.MenuItem("设置")
         settings_menu.add(hotkey_menu)
+        settings_menu.add(mode_menu)
         settings_menu.add(self._polish_item)
         settings_menu.add(self._style_menu)
         settings_menu.add(rumps.MenuItem("打开配置文件", callback=self.open_settings))
@@ -126,11 +134,14 @@ class XiaodaoIME(rumps.App):
                 polisher=self._polisher, settings=self._settings,
                 history=self._history,
                 hotkey=self._settings.data.get("hotkey", "alt_l"),
+                mode=self._settings.data.get("record_mode", "toggle"),
             )
             self._hotkey.start()
-            log.info("小岛AI输入法已就绪：按住「%s」说话",
-                     HOTKEY_CHOICES.get(self._settings.data.get("hotkey", "alt_l"),
-                                        HOTKEY_CHOICES["alt_l"])[0])
+            hotkey_label = HOTKEY_CHOICES.get(
+                self._settings.data.get("hotkey", "alt_l"), HOTKEY_CHOICES["alt_l"])[0]
+            mode = self._settings.data.get("record_mode", "toggle")
+            log.info("小岛AI输入法已就绪：热键「%s」，方式「%s」",
+                     hotkey_label, RECORD_MODES.get(mode, mode))
         except Exception as e:
             log.error("热键监听启动失败：%s（通常是缺少「输入监听/辅助功能」权限）", e)
             print(
@@ -147,6 +158,9 @@ class XiaodaoIME(rumps.App):
         current = self._settings.data.get("hotkey", "alt_l")
         for name, item in self._hotkey_items.items():
             item.state = 1 if name == current else 0
+        current_mode = self._settings.data.get("record_mode", "toggle")
+        for name, item in self._mode_items.items():
+            item.state = 1 if name == current_mode else 0
         polish = self._settings.data.get("polish", {})
         self._polish_item.state = 1 if polish.get("enabled") else 0
         provider = polish.get("provider", "openai")
@@ -221,6 +235,15 @@ class XiaodaoIME(rumps.App):
             self._sync_menu_state()
         return _cb
 
+    def _make_mode_cb(self, name: str):
+        def _cb(_):
+            self._settings.data["record_mode"] = name
+            self._settings.save()
+            if self._hotkey:
+                self._hotkey.set_mode(name)
+            self._sync_menu_state()
+        return _cb
+
     def toggle_polish(self, _) -> None:
         polish = self._settings.data.setdefault("polish", {})
         if not polish.get("enabled") and not self._polisher.configured:
@@ -240,6 +263,7 @@ class XiaodaoIME(rumps.App):
         self._settings.load()
         if self._hotkey:
             self._hotkey.set_trigger(self._settings.data.get("hotkey", "alt_l"))
+            self._hotkey.set_mode(self._settings.data.get("record_mode", "toggle"))
         self._sync_menu_state()
         log.info("配置已重新加载")
 
