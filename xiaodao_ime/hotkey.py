@@ -84,6 +84,7 @@ class HotkeyController:
         self._cancelled = False
         self._ignore_next_release = False
         self._last_short_tap = 0.0      # hold：上一次短按时间（识别双击）
+        self._saw_event = False         # 是否收到过键盘事件（输入监听权限探针）
         self._listener: Optional[keyboard.Listener] = None
 
     # ---- 外部配置 ----
@@ -136,6 +137,9 @@ class HotkeyController:
 
     def _on_press(self, key) -> None:  # noqa: ANN001
         try:
+            if not self._saw_event:
+                self._saw_event = True
+                log.info("✅ 已收到键盘事件，输入监听权限正常（首个按键：%s）", key)
             if key in self._trigger:
                 if self._mode == "toggle":
                     self._press_toggle()

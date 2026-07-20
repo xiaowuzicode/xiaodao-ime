@@ -29,6 +29,7 @@ from xiaodao_ime.history import History  # noqa: E402
 from xiaodao_ime.hotkey import HOTKEY_CHOICES, RECORD_MODES, HotkeyController  # noqa: E402
 from xiaodao_ime.logger import get_logger  # noqa: E402
 from xiaodao_ime.paster import copy_to_clipboard  # noqa: E402
+from xiaodao_ime.permissions import check_permissions  # noqa: E402
 from xiaodao_ime.polisher import Polisher, get_styles  # noqa: E402
 from xiaodao_ime.recorder import Recorder  # noqa: E402
 from xiaodao_ime.settings import Settings  # noqa: E402
@@ -110,7 +111,22 @@ class XiaodaoIME(rumps.App):
         self._boot()
 
     def _boot(self) -> None:
-        """加载模型 + 启动热键监听；任一步失败都不让进程崩溃，给出明确指引。"""
+        """权限自检 + 加载模型 + 启动热键监听；任一步失败都不让进程崩溃，给出明确指引。"""
+        # 0. 权限自检：缺失时触发系统弹窗（把当前宿主自动加进权限列表）并通知
+        perms = check_permissions(prompt=True)
+        if not perms["input_monitoring"] or not perms["accessibility"]:
+            missing = []
+            if not perms["input_monitoring"]:
+                missing.append("输入监听")
+            if not perms["accessibility"]:
+                missing.append("辅助功能")
+            self._status_item.title = f"状态：缺权限（{'、'.join(missing)}）"
+            rumps.notification(
+                "小岛AI输入法", f"缺少权限：{'、'.join(missing)}",
+                "请到 系统设置→隐私与安全性 勾选本程序；"
+                "若列表里已有旧条目仍无效，先移除再重新添加，然后重启本程序。",
+            )
+
         # 1. 加载常驻模型
         try:
             if not os.path.isfile(MODEL_PATH):
