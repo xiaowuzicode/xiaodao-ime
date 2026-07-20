@@ -9,6 +9,10 @@ Local-first AI voice typing for macOS — hold a key, speak, release. 100% on-de
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB)
 ![Engine](https://img.shields.io/badge/Engine-transcribe.cpp%20%2B%20SenseVoice-orange)
 
+![演示：单击左 Option 说话，再单击，文字落进 Claude Code 输入框](docs/demo.gif)
+
+> 上图：对着 Claude Code 说「这是我的小岛 ai 输入法快来使用吧」，全程没碰键盘。
+
 ---
 
 ## 为什么做这个？
