@@ -1,14 +1,29 @@
 """全局配置与路径常量。"""
 import os
+import sys
 
 # 项目根目录（本文件位于 <root>/xiaodao_ime/config.py）
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-MODELS_DIR = os.path.join(PROJECT_ROOT, "models")
-LOGS_DIR = os.path.join(PROJECT_ROOT, "logs")
+# PyInstaller 打包运行时（sys.frozen），用户数据放系统标准位置；
+# 源码运行时沿用项目目录，便于开发调试。
+IS_FROZEN = bool(getattr(sys, "frozen", False))
+if IS_FROZEN:
+    BASE_DIR = os.path.expanduser("~/Library/Application Support/xiaodao-ime")
+else:
+    BASE_DIR = PROJECT_ROOT
+
+MODELS_DIR = os.path.join(BASE_DIR, "models")
+LOGS_DIR = os.path.join(BASE_DIR, "logs")
 LOG_FILE = os.path.join(LOGS_DIR, "xiaodao-ime.log")
-DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+DATA_DIR = os.path.join(BASE_DIR, "data")
 HISTORY_FILE = os.path.join(DATA_DIR, "history.jsonl")
+
+for _d in (MODELS_DIR, LOGS_DIR, DATA_DIR):
+    os.makedirs(_d, exist_ok=True)
+
+# 模型下载源（首次运行自动下载）
+MODEL_REPO = "handy-computer/SenseVoiceSmall-gguf"
 
 # 转写模型：SenseVoice Small，Q8_0 量化（中文最强、自带标点、速度极快）
 MODEL_FILENAME = os.environ.get("XIAODAO_MODEL", "SenseVoiceSmall-Q8_0.gguf")

@@ -7,12 +7,12 @@ import copy
 import json
 import os
 
-from xiaodao_ime.config import PROJECT_ROOT
+from xiaodao_ime.config import BASE_DIR
 from xiaodao_ime.logger import get_logger
 
 log = get_logger(__name__)
 
-SETTINGS_PATH = os.path.join(PROJECT_ROOT, "settings.json")
+SETTINGS_PATH = os.path.join(BASE_DIR, "settings.json")
 
 DEFAULTS = {
     # 录音热键：alt_l 左Option / alt_r 右Option / cmd_r 右Command / f19

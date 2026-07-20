@@ -22,3 +22,5 @@ settings.json
 # 打包产物与本地数据
 dist/
 data/
+build/
+*.spec

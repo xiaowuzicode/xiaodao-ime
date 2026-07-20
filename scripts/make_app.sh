@@ -19,7 +19,11 @@ if [[ ! -x "$PYTHON" ]]; then
 fi
 
 rm -rf "$APP_DIR"
-mkdir -p "$APP_DIR/Contents/MacOS"
+mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
+
+if [[ -f "$ROOT/resources/icon.icns" ]]; then
+  cp "$ROOT/resources/icon.icns" "$APP_DIR/Contents/Resources/icon.icns"
+fi
 
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -30,6 +34,7 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
     <key>CFBundleName</key><string>$APP_NAME</string>
     <key>CFBundleDisplayName</key><string>$APP_NAME</string>
     <key>CFBundleExecutable</key><string>xiaodao-ime</string>
+    <key>CFBundleIconFile</key><string>icon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>0.2.0</string>
     <key>LSUIElement</key><true/>
@@ -39,10 +44,12 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
+# 注意：不能用 exec —— exec 会把进程镜像替换成 python3，TCC 权限就会记到
+# 「python3」头上而不是本 App。作为子进程运行时，macOS 会把权限归属追溯到 App bundle。
 cat > "$APP_DIR/Contents/MacOS/xiaodao-ime" <<LAUNCHER
 #!/bin/zsh
 cd "$ROOT"
-exec "$PYTHON" "$ROOT/app.py"
+"$PYTHON" "$ROOT/app.py"
 LAUNCHER
 chmod +x "$APP_DIR/Contents/MacOS/xiaodao-ime"
 

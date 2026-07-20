@@ -8,6 +8,7 @@ rumps 必须运行在主线程；pynput 监听、录音回调、转写/润色均
 import os
 import subprocess
 import sys
+import threading
 import time
 
 # 保证以「项目根目录」为导入根，使 `xiaodao_ime` 绝对导入可用
@@ -23,7 +24,10 @@ from xiaodao_ime.config import (  # noqa: E402
     ICON_RECORDING,
     ICON_TRANSCRIBING,
     LOG_FILE,
+    MODEL_FILENAME,
     MODEL_PATH,
+    MODEL_REPO,
+    MODELS_DIR,
 )
 from xiaodao_ime.history import History  # noqa: E402
 from xiaodao_ime.hotkey import HOTKEY_CHOICES, RECORD_MODES, HotkeyController  # noqa: E402
@@ -127,17 +131,38 @@ class XiaodaoIME(rumps.App):
                 "若列表里已有旧条目仍无效，先移除再重新添加，然后重启本程序。",
             )
 
+        # 1. 模型：存在则直接加载；缺失则后台自动下载（首次运行）
+        if os.path.isfile(MODEL_PATH):
+            self._finish_boot()
+        else:
+            log.info("模型缺失，后台自动下载：%s / %s", MODEL_REPO, MODEL_FILENAME)
+            self._status_item.title = "状态：正在下载模型（241MB，仅首次）…"
+            rumps.notification(
+                "小岛AI输入法", "首次运行：正在下载语音模型（约 241MB）",
+                "完成后会通知你。国内网络慢可设环境变量 HF_ENDPOINT=https://hf-mirror.com",
+            )
+            threading.Thread(target=self._download_model, daemon=True).start()
+
+    def _download_model(self) -> None:
+        try:
+            from huggingface_hub import hf_hub_download
+            hf_hub_download(MODEL_REPO, MODEL_FILENAME, local_dir=MODELS_DIR)
+            log.info("模型下载完成：%s", MODEL_PATH)
+            rumps.notification("小岛AI输入法", "模型下载完成", "语音输入已就绪 🏝️")
+            self._finish_boot()
+        except Exception as e:
+            log.error("模型下载失败：%s", e)
+            self._status_item.title = "状态：模型下载失败（见日志）"
+            rumps.notification(
+                "小岛AI输入法", "模型下载失败",
+                "请检查网络。国内可设 HF_ENDPOINT=https://hf-mirror.com 后重启本程序。",
+            )
+
+    def _finish_boot(self) -> None:
         # 1. 加载常驻模型
         try:
-            if not os.path.isfile(MODEL_PATH):
-                msg = (f"模型文件缺失：{MODEL_PATH}\n"
-                       "请先下载 SenseVoice GGUF 到 models/ 目录（见 README）。")
-                log.error(msg)
-                self._status_item.title = "状态：模型缺失"
-                print("[启动错误] " + msg, file=sys.stderr)
-            else:
-                secs = self._transcriber.load()
-                log.info("模型常驻就绪，加载耗时 %.2fs", secs)
+            secs = self._transcriber.load()
+            log.info("模型常驻就绪，加载耗时 %.2fs", secs)
         except Exception as e:
             log.error("模型加载失败：%s", e)
             self._status_item.title = "状态：模型加载失败"
