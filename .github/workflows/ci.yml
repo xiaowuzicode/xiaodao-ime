@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  PYTHONUTF8: "1"  # Windows runner 默认 cp1252，中文/emoji print 会炸
+
 jobs:
   test-macos:
     runs-on: macos-latest
