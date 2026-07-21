@@ -42,6 +42,14 @@ Local-first AI voice typing for macOS — hold a key, speak, release. 100% on-de
 | 📦 **打包成独立 App** | 一条命令生成 .app，权限授给它自己，免终端、可开机自启 |
 | 🛡️ **防误触** | 组合键自动取消、短按丢弃、润色失败自动回退原文（fail-open） |
 
+## 界面一览
+
+| 菜单栏 | 录音计时 |
+|---|---|
+| ![菜单栏状态与设置](docs/screenshot-menu.png) | ![录音中菜单栏实时计时](docs/screenshot-recording.png) |
+
+![五种内置润色风格，可自定义](docs/screenshot-styles.png)
+
 ## 快速开始
 
 ```bash
