@@ -122,6 +122,43 @@ class Polisher:
                  provider, conf.get("model"), style, time.perf_counter() - t0)
         return out
 
+    def rewrite(self, selection: str, instruction: str):
+        """语音指令改写：按口头指令改写选中文本。失败返回 None（调用方不动原文）。
+
+        不受 polish.enabled 开关影响（那是听写润色的开关），只要 provider 配置可用即可。
+        """
+        conf = self._conf
+        if not selection.strip() or not instruction.strip():
+            return None
+        system = (
+            "你是文本改写引擎。按照用户的口头指令改写给定文本，保持改写结果可以直接"
+            "原地替换原文（不加解释、不加前后缀、不加引号）。指令若与文本无关或无法执行，"
+            "原样输出原文。"
+        )
+        hotwords = self._settings.data.get("hotwords", [])
+        if hotwords:
+            system += "\n常用专有名词：" + "、".join(hotwords)
+        user_msg = f"指令：{instruction}\n\n待改写文本：\n{selection}"
+        provider = conf.get("provider", "openai")
+        t0 = time.perf_counter()
+        try:
+            if provider == "openai":
+                out = self._via_openai(user_msg, conf, system)
+            elif provider == "anthropic":
+                out = self._via_anthropic(user_msg, conf, system)
+            else:
+                log.warning("未知 provider: %r，无法改写", provider)
+                return None
+        except Exception as e:
+            log.warning("改写失败（%s）：%s", provider, e)
+            return None
+        out = (out or "").strip()
+        if not out:
+            return None
+        log.info("改写完成（%s / %s），指令=%r，耗时 %.2fs",
+                 provider, conf.get("model"), instruction, time.perf_counter() - t0)
+        return out
+
     # ---- providers ----
 
     def _via_openai(self, text: str, conf: dict, system: str) -> str:

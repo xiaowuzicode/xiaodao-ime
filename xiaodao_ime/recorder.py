@@ -51,6 +51,14 @@ class Recorder:
         self._started_at = time.perf_counter()
         log.info("录音开始")
 
+    def snapshot(self) -> np.ndarray:
+        """录音进行中获取当前累积 PCM 的拷贝（实时预览用），不影响录音。"""
+        with self._lock:
+            frames = list(self._frames)
+        if not frames:
+            return np.zeros(0, dtype=np.float32)
+        return np.concatenate(frames, axis=0).reshape(-1).astype(np.float32)
+
     def duration(self) -> float:
         """当前已录时长（秒）。"""
         if not self._started_at:

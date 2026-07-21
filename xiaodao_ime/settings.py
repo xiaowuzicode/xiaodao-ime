@@ -15,10 +15,14 @@ log = get_logger(__name__)
 SETTINGS_PATH = os.path.join(BASE_DIR, "settings.json")
 
 DEFAULTS = {
-    # 录音热键：alt_l 左Option / alt_r 右Option / cmd_r 右Command / f19
+    # 听写热键：alt_l 左Option / alt_r 右Option / cmd_r 右Command / f19
     "hotkey": "alt_l",
+    # 语音改写热键（选中文字后按它说指令，如「改成英文」），须与听写热键不同
+    "rewrite_hotkey": "alt_r",
     # 录音方式：toggle 单击开始再击结束（默认）/ hold 按住说话+双击锁定
     "record_mode": "toggle",
+    # 录音时悬浮窗实时预览识别文本
+    "live_preview": True,
     # LLM 润色（可选）：去口水词、修正同音错字、规范标点。Key 为用户自备的大模型 API Key。
     "polish": {
         "enabled": False,

@@ -80,8 +80,11 @@ class Transcriber:
     def loaded(self) -> bool:
         return self._model is not None
 
-    def transcribe(self, pcm: np.ndarray) -> tuple[str, float]:
-        """转写 16kHz 单声道 float32 PCM，返回 (文本, 耗时秒)。"""
+    def transcribe(self, pcm: np.ndarray, partial: bool = False) -> tuple[str, float]:
+        """转写 16kHz 单声道 float32 PCM，返回 (文本, 耗时秒)。
+
+        partial=True 表示实时预览的中间转写：只打 debug 日志，避免刷屏。
+        """
         if self._model is None:
             raise RuntimeError("模型尚未加载，请先调用 load()")
         if pcm is None or len(pcm) == 0:
@@ -99,7 +102,10 @@ class Transcriber:
                     pass
             dt = time.perf_counter() - t0
         text = (result.text or "").strip()
-        log.info("转写完成，耗时 %.3fs，样本数=%d，文本=%r", dt, len(pcm), text)
+        if partial:
+            log.debug("预览转写：耗时 %.3fs，样本数=%d", dt, len(pcm))
+        else:
+            log.info("转写完成，耗时 %.3fs，样本数=%d，文本=%r", dt, len(pcm), text)
         return text, dt
 
     def close(self) -> None:

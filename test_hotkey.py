@@ -15,6 +15,7 @@ from xiaodao_ime.hotkey import HOTKEY_CHOICES, HotkeyController  # noqa: E402
 from xiaodao_ime.settings import Settings  # noqa: E402
 
 ALT = keyboard.Key.alt        # macOS 上左 Option 的实际上报值
+ALT_R = keyboard.Key.alt_r    # 右 Option（默认改写热键）
 OTHER = keyboard.KeyCode.from_char("c")
 
 
@@ -137,6 +138,52 @@ def test_hold_combo_cancels():
     print("PASS: hold 组合键取消")
 
 
+def test_rewrite_channel():
+    with tempfile.TemporaryDirectory() as d:
+        ctl, rec = make_controller(d, "toggle")
+        # 右 Option 单击 => 开始改写通道录音
+        ctl._on_press(ALT_R)
+        ctl._on_release(ALT_R)
+        assert rec.recording and ctl._channel == "rewrite"
+        # 再击右 Option => 结束（进入改写 worker；polisher=None 会走不可用分支，不粘贴）
+        ctl._on_press(ALT_R)
+        assert not rec.recording
+        ctl._on_release(ALT_R)
+    print("PASS: rewrite 通道单击开始/结束")
+
+
+def test_cross_hotkey_cancels():
+    with tempfile.TemporaryDirectory() as d:
+        ctl, rec = make_controller(d, "toggle")
+        # 听写录音中按下改写键 => 取消，不触发改写
+        ctl._on_press(ALT)
+        ctl._on_release(ALT)
+        assert rec.recording and ctl._channel == "dictate"
+        ctl._on_press(ALT_R)
+        assert not rec.recording and not ctl._recording
+        ctl._on_release(ALT_R)
+        # 取消后改写键还能正常开启
+        ctl._on_press(ALT_R)
+        ctl._on_release(ALT_R)
+        assert rec.recording and ctl._channel == "rewrite"
+    print("PASS: 双热键互斥取消")
+
+
+def test_rewrite_prompt_build():
+    from xiaodao_ime.polisher import Polisher
+    with tempfile.TemporaryDirectory() as d:
+        s = Settings(os.path.join(d, "settings.json"))
+        p = Polisher(s)
+        # 未配置 base_url -> rewrite fail-open 返回 None
+        s.data["polish"]["base_url"] = ""
+        assert p.rewrite("选中的文字", "改成英文") is None
+        # 空输入不请求
+        s.data["polish"]["base_url"] = "https://example.invalid"
+        assert p.rewrite("", "改成英文") is None
+        assert p.rewrite("文字", "  ") is None
+    print("PASS: rewrite fail-open")
+
+
 if __name__ == "__main__":
     test_macos_alt_matches()
     test_toggle_basic()
@@ -144,5 +191,8 @@ if __name__ == "__main__":
     test_toggle_other_key_cancels()
     test_hold_basic_and_lock()
     test_hold_combo_cancels()
-    time.sleep(0.2)  # 等 worker 线程退出
+    test_rewrite_channel()
+    test_cross_hotkey_cancels()
+    test_rewrite_prompt_build()
+    time.sleep(0.3)  # 等 worker 线程退出
     print("\n热键状态机测试全部通过 ✅")

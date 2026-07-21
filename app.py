@@ -31,6 +31,7 @@ from xiaodao_ime.config import (  # noqa: E402
 )
 from xiaodao_ime.history import History  # noqa: E402
 from xiaodao_ime.hotkey import HOTKEY_CHOICES, RECORD_MODES, HotkeyController  # noqa: E402
+from xiaodao_ime.hud import PreviewHUD  # noqa: E402
 from xiaodao_ime.logger import get_logger  # noqa: E402
 from xiaodao_ime.paster import copy_to_clipboard  # noqa: E402
 from xiaodao_ime.permissions import check_permissions  # noqa: E402
@@ -66,9 +67,16 @@ class XiaodaoIME(rumps.App):
             name: rumps.MenuItem(label, callback=self._make_hotkey_cb(name))
             for name, (label, _) in HOTKEY_CHOICES.items()
         }
-        hotkey_menu = rumps.MenuItem("热键")
+        hotkey_menu = rumps.MenuItem("听写热键")
         for item in self._hotkey_items.values():
             hotkey_menu.add(item)
+        self._rewrite_items = {
+            name: rumps.MenuItem(label, callback=self._make_rewrite_cb(name))
+            for name, (label, _) in HOTKEY_CHOICES.items()
+        }
+        rewrite_menu = rumps.MenuItem("改写热键")
+        for item in self._rewrite_items.values():
+            rewrite_menu.add(item)
         self._mode_items = {
             name: rumps.MenuItem(label, callback=self._make_mode_cb(name))
             for name, label in RECORD_MODES.items()
@@ -78,9 +86,12 @@ class XiaodaoIME(rumps.App):
             mode_menu.add(item)
         self._polish_item = rumps.MenuItem("AI 润色", callback=self.toggle_polish)
         self._style_menu = rumps.MenuItem("润色风格")
+        self._preview_item = rumps.MenuItem("实时预览悬浮窗", callback=self.toggle_preview)
         settings_menu = rumps.MenuItem("设置")
         settings_menu.add(hotkey_menu)
+        settings_menu.add(rewrite_menu)
         settings_menu.add(mode_menu)
+        settings_menu.add(self._preview_item)
         settings_menu.add(self._polish_item)
         settings_menu.add(self._style_menu)
         settings_menu.add(rumps.MenuItem("打开配置文件", callback=self.open_settings))
@@ -111,6 +122,7 @@ class XiaodaoIME(rumps.App):
 
         self._recorder = Recorder()
         self._transcriber = Transcriber()
+        self._hud_panel = PreviewHUD()
         self._hotkey = None
         self._boot()
 
@@ -173,8 +185,10 @@ class XiaodaoIME(rumps.App):
             self._hotkey = HotkeyController(
                 self._recorder, self._transcriber, on_status=self._set_status,
                 polisher=self._polisher, settings=self._settings,
-                history=self._history,
+                history=self._history, hud=self._hud_panel,
+                notifier=lambda t, m: rumps.notification("小岛AI输入法", t, m),
                 hotkey=self._settings.data.get("hotkey", "alt_l"),
+                rewrite_hotkey=self._settings.data.get("rewrite_hotkey", "alt_r"),
                 mode=self._settings.data.get("record_mode", "toggle"),
             )
             self._hotkey.start()
@@ -199,9 +213,13 @@ class XiaodaoIME(rumps.App):
         current = self._settings.data.get("hotkey", "alt_l")
         for name, item in self._hotkey_items.items():
             item.state = 1 if name == current else 0
+        current_rewrite = self._settings.data.get("rewrite_hotkey", "alt_r")
+        for name, item in self._rewrite_items.items():
+            item.state = 1 if name == current_rewrite else 0
         current_mode = self._settings.data.get("record_mode", "toggle")
         for name, item in self._mode_items.items():
             item.state = 1 if name == current_mode else 0
+        self._preview_item.state = 1 if self._settings.data.get("live_preview", True) else 0
         polish = self._settings.data.get("polish", {})
         self._polish_item.state = 1 if polish.get("enabled") else 0
         provider = polish.get("provider", "openai")
@@ -269,12 +287,36 @@ class XiaodaoIME(rumps.App):
 
     def _make_hotkey_cb(self, name: str):
         def _cb(_):
+            if name == self._settings.data.get("rewrite_hotkey", "alt_r"):
+                rumps.notification("小岛AI输入法", "听写热键不能和改写热键相同",
+                                   "请先把改写热键换成别的键。")
+                return
             self._settings.data["hotkey"] = name
             self._settings.save()
             if self._hotkey:
                 self._hotkey.set_trigger(name)
             self._sync_menu_state()
         return _cb
+
+    def _make_rewrite_cb(self, name: str):
+        def _cb(_):
+            if name == self._settings.data.get("hotkey", "alt_l"):
+                rumps.notification("小岛AI输入法", "改写热键不能和听写热键相同",
+                                   "请先把听写热键换成别的键。")
+                return
+            self._settings.data["rewrite_hotkey"] = name
+            self._settings.save()
+            if self._hotkey:
+                self._hotkey.set_rewrite_trigger(name)
+            self._sync_menu_state()
+        return _cb
+
+    def toggle_preview(self, _) -> None:
+        current = bool(self._settings.data.get("live_preview", True))
+        self._settings.data["live_preview"] = not current
+        self._settings.save()
+        self._sync_menu_state()
+        log.info("实时预览已%s", "关闭" if current else "开启")
 
     def _make_mode_cb(self, name: str):
         def _cb(_):
@@ -304,6 +346,7 @@ class XiaodaoIME(rumps.App):
         self._settings.load()
         if self._hotkey:
             self._hotkey.set_trigger(self._settings.data.get("hotkey", "alt_l"))
+            self._hotkey.set_rewrite_trigger(self._settings.data.get("rewrite_hotkey", "alt_r"))
             self._hotkey.set_mode(self._settings.data.get("record_mode", "toggle"))
         self._sync_menu_state()
         log.info("配置已重新加载")
