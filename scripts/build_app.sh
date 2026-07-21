@@ -36,9 +36,22 @@ pb "Set :CFBundleName $APP_NAME"
 pb "Add :CFBundleDisplayName string $APP_NAME"; pb "Set :CFBundleDisplayName $APP_NAME"
 
 mv "$APP" "dist/$APP_NAME.app"
-codesign --force --deep -s - "dist/$APP_NAME.app"
+
+# 优先用本机固定签名证书「XiaodaoIME Signing」（钥匙串自签证书）：
+# 签名身份跨构建保持不变，TCC 权限授一次永久有效；没有证书时回退 ad-hoc。
+if security find-identity -p codesigning 2>/dev/null | grep -q "XiaodaoIME Signing"; then
+  SIGN_ID="XiaodaoIME Signing"
+else
+  SIGN_ID="-"
+  echo "⚠️ 未找到「XiaodaoIME Signing」证书，回退 ad-hoc 签名（每次重打包需重新授权）"
+fi
+codesign --force --deep -s "$SIGN_ID" "dist/$APP_NAME.app"
 
 echo ""
 echo "✅ 发布版已生成：dist/$APP_NAME.app（自包含，可直接拖进「应用程序」）"
 echo "   首次启动会自动下载模型（241MB）；权限授予对象就是「$APP_NAME」本身。"
-echo "   ⚠️ 重新构建后签名会变：系统设置里旧授权条目需先移除再重新勾选。"
+if [[ "$SIGN_ID" == "-" ]]; then
+  echo "   ⚠️ ad-hoc 签名：重新构建后系统设置里旧授权条目需先移除再重新勾选。"
+else
+  echo "   已用固定证书签名：重打包不再需要重新授权。"
+fi
