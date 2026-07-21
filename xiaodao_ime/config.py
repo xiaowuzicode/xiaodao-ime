@@ -9,7 +9,13 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # 源码运行时沿用项目目录，便于开发调试。
 IS_FROZEN = bool(getattr(sys, "frozen", False))
 if IS_FROZEN:
-    BASE_DIR = os.path.expanduser("~/Library/Application Support/xiaodao-ime")
+    if sys.platform == "darwin":
+        BASE_DIR = os.path.expanduser("~/Library/Application Support/xiaodao-ime")
+    elif sys.platform.startswith("win"):
+        BASE_DIR = os.path.join(
+            os.environ.get("APPDATA", os.path.expanduser("~")), "xiaodao-ime")
+    else:
+        BASE_DIR = os.path.expanduser("~/.local/share/xiaodao-ime")
 else:
     BASE_DIR = PROJECT_ROOT
 

@@ -52,11 +52,24 @@
 - ✅ **实时预览悬浮窗（伪流式）**：录音时 NSPanel 浮窗实时显示识别文本。真流式仅 Parakeet/Moonshine/Voxtral 支持（无中文），改用 SenseVoice 全量重转方案（每 ~0.7s 重转累积音频，36ms/3.5s 的速度使其可行，且自带回头修正），松手一次性上屏，避免"原地打字式"在任意 App 里删改的翻车风险。
 - ✅ **语音指令改写**（Aqua Voice 同款）：选中文字 → 右 Option 说指令 → 哨兵值检测选区（Cmd+C）→ 选区+指令交给 LLM → Cmd+V 原地替换 → 恢复原剪贴板；无选区/模型失败一律 fail-open。
 
+## P3.5（第五轮已实现：跨平台架构 + 交互精修）
+
+- ✅ **跨平台分层**：核心层（热键状态机/录音/转写/润色/HUD 组合/粘贴流程）平台无关，系统 API 全部收进 `xiaodao_ime/platform/`（mac.py = AppKit/Quartz/NSPanel/afplay；win.py = Win32 ctypes 剪贴板/pynput 注入/tkinter 浮窗/winsound）。
+- ✅ **Windows 支持（beta）**：pystray 托盘入口 `app_win.py`、默认热键右 Ctrl（听写）/ F8（改写）（右 Alt=AltGr 不做默认）、`%APPDATA%\xiaodao-ime` 数据目录、PyInstaller 打包脚本、GitHub Actions 双平台测试 + Windows 产物构建。识别引擎 `transcribe-cpp-native` 自带 win_amd64 轮子（CPU 推理）。**待真机验证**。
+- ✅ **HUD 声浪**：录音时实时音量波形（块字符滚动渲染，~12Hz），一眼确认麦克风在听。
+- ✅ **润色不做黑盒**：转写完成即在 HUD 亮出全文，润色/改写期间可读。
+- ✅ **暂停热键总开关**：菜单一键停用/恢复（图标 💤），打游戏/热键冲突场景。
+- ✅ **取消提示**：HUD 副行常显「再按热键出字 · 按 Esc 取消」等操作提示。
+- ✅ **稳定签名身份**（macOS 自签证书「XiaodaoIME Signing」），重打包不再需要重新授权（P4 提前完成）。
+
 ## P4（后续）
 
+- Windows 真机手感调优（热键/浮窗/粘贴时序/杀软误报应对）＋ Release 附 Windows 包。
+- HUD 位置可配（顶部/底部，防挡输入区）。
+- 历史菜单「用原文替换回去」（润色翻车后悔药）。
 - 双语模式快捷切换（说中文出英文已可用「翻译成英文」风格，缺快捷切换）。
 - 常驻润色通道：本地小模型（ollama qwen 系）做默认润色，无网络、无 key、~1s。
-- 稳定签名身份（Apple 开发者证书），消除重打包后需重新授权的问题。
+- Linux 支持（pynput X11 可用；Wayland 受限，待评估）。
 
 ## 不做
 

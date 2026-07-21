@@ -1,115 +1,109 @@
-"""实时预览悬浮窗（HUD）。
+"""实时预览悬浮窗（HUD）：平台无关的展示组合逻辑。
 
-录音期间在屏幕下方居中浮一个不抢焦点的深色圆角小窗，实时显示：
-    🎙️ 已录秒数 ｜ 识别中的文本（尾部截断）
-转写/润色阶段显示状态文案，粘贴完成后收起。
+窗口本体由平台后端提供（HUDWindow：show_lines(main, hint) / hide()），
+本模块负责把「计时 + 声浪 + 识别文本 + 操作提示」组合成两行文本：
 
-线程模型：show/update/hide 可从任意线程调用，内部经 AppHelper.callAfter
-调度到 AppKit 主线程（rumps 的事件循环就是 PyObjCTools.AppHelper 跑的）。
+    🎙️ 12s ▁▂▅▇▆▃▁▁▂▄  …识别中的文本尾部
+    再按热键出字 · 按 Esc 取消
+
+声浪是最近 N 次音量电平的滚动波形（块字符渲染），让用户一眼确认
+「麦克风正在收到我的声音」；转写/润色阶段主行显示状态、副行显示已
+转写全文尾部，等待不再是黑盒。
 """
-from AppKit import (
-    NSBackingStoreBuffered,
-    NSColor,
-    NSFont,
-    NSMakeRect,
-    NSPanel,
-    NSScreen,
-    NSStatusWindowLevel,
-    NSTextField,
-    NSWindowCollectionBehaviorCanJoinAllSpaces,
-    NSWindowStyleMaskBorderless,
-    NSWindowStyleMaskNonactivatingPanel,
-)
-from PyObjCTools import AppHelper
+from collections import deque
 
+from xiaodao_ime import platform as _platform
 from xiaodao_ime.logger import get_logger
 
 log = get_logger(__name__)
 
-_WIDTH = 520
-_HEIGHT = 64
-_MARGIN_BOTTOM = 96
-_MAX_CHARS = 60  # 只显示识别文本的尾部这么多字
+_BLOCKS = "▁▂▃▄▅▆▇█"
+_WAVE_SLOTS = 10       # 声浪显示最近多少个电平采样
+_MAX_TAIL = 40         # 主行识别文本尾部最多字符数
+_MAX_DETAIL = 56       # 状态副行（如润色中的已转写全文）尾部最多字符数
+
+
+def _tail(text: str, limit: int) -> str:
+    if not text:
+        return ""
+    return text if len(text) <= limit else "…" + text[-limit:]
 
 
 class PreviewHUD:
-    def __init__(self):
-        self._panel = None
-        self._label = None
-        self._visible = False
+    """录音会话期间的悬浮窗。方法均线程安全（后端负责线程调度）。"""
 
-    # ---- 主线程内部实现 ----
+    def __init__(self, window=None):
+        self._win = window if window is not None else _platform.backend.HUDWindow()
+        self._levels = deque([0.0] * _WAVE_SLOTS, maxlen=_WAVE_SLOTS)
+        self._elapsed = 0
+        self._partial = ""
+        self._placeholder = ""
+        self._prefix = "🎙️"
+        self._hint = ""
+        self._recording = False
 
-    def _ensure_panel(self) -> None:
-        if self._panel is not None:
+    # ---- 录音会话 ----
+
+    def begin(self, prefix: str = "🎙️", placeholder: str = "",
+              hint: str = "") -> None:
+        """开始一次录音会话：重置状态并立即显示。"""
+        self._levels = deque([0.0] * _WAVE_SLOTS, maxlen=_WAVE_SLOTS)
+        self._elapsed = 0
+        self._partial = ""
+        self._placeholder = placeholder or "聆听中…"
+        self._prefix = prefix
+        self._hint = hint
+        self._recording = True
+        self._redraw()
+
+    def set_level(self, level: float) -> None:
+        """推入一个音量电平（0~1），刷新声浪。约 10Hz 调用。"""
+        if not self._recording:
             return
-        screen = NSScreen.mainScreen()
-        frame = screen.visibleFrame() if screen else NSMakeRect(0, 0, 1440, 900)
-        x = frame.origin.x + (frame.size.width - _WIDTH) / 2
-        y = frame.origin.y + _MARGIN_BOTTOM
-        panel = NSPanel.alloc().initWithContentRect_styleMask_backing_defer_(
-            NSMakeRect(x, y, _WIDTH, _HEIGHT),
-            NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel,
-            NSBackingStoreBuffered,
-            False,
-        )
-        panel.setLevel_(NSStatusWindowLevel)
-        panel.setOpaque_(False)
-        panel.setBackgroundColor_(NSColor.clearColor())
-        panel.setIgnoresMouseEvents_(True)  # 点击穿透，不打断用户操作
-        panel.setCollectionBehavior_(NSWindowCollectionBehaviorCanJoinAllSpaces)
-        panel.setHidesOnDeactivate_(False)
+        self._levels.append(max(0.0, min(1.0, float(level))))
+        self._redraw()
 
-        content = panel.contentView()
-        content.setWantsLayer_(True)
-        layer = content.layer()
-        layer.setCornerRadius_(14.0)
-        layer.setBackgroundColor_(
-            NSColor.colorWithCalibratedWhite_alpha_(0.08, 0.92).CGColor()
-        )
+    def set_partial(self, elapsed: float, text: str) -> None:
+        """更新已录秒数与伪流式识别文本（文本为空则保留占位/上次结果）。"""
+        if not self._recording:
+            return
+        self._elapsed = int(elapsed)
+        if text:
+            self._partial = text
+        self._redraw()
 
-        label = NSTextField.alloc().initWithFrame_(
-            NSMakeRect(18, 12, _WIDTH - 36, _HEIGHT - 24)
-        )
-        label.setEditable_(False)
-        label.setBordered_(False)
-        label.setBezeled_(False)
-        label.setDrawsBackground_(False)
-        label.setTextColor_(NSColor.whiteColor())
-        label.setFont_(NSFont.systemFontOfSize_(15))
-        label.setLineBreakMode_(0)  # NSLineBreakByWordWrapping
-        label.setMaximumNumberOfLines_(2)
-        content.addSubview_(label)
+    def set_hint(self, hint: str) -> None:
+        if self._recording:
+            self._hint = hint
+            self._redraw()
 
-        self._panel = panel
-        self._label = label
+    # ---- 录音后的状态展示 ----
 
-    def _do_update(self, text: str) -> None:
+    def set_status(self, status: str, detail: str = "") -> None:
+        """转写/润色等阶段：主行状态文案，副行给已转写文本尾部（可空）。"""
+        self._recording = False
         try:
-            self._ensure_panel()
-            self._label.setStringValue_(text)
-            if not self._visible:
-                self._panel.orderFrontRegardless()
-                self._visible = True
+            self._win.show_lines(status, _tail(detail, _MAX_DETAIL))
         except Exception as e:
-            log.debug("HUD 更新失败：%s", e)
+            log.debug("HUD 状态更新失败：%s", e)
 
-    def _do_hide(self) -> None:
+    def hide(self) -> None:
+        self._recording = False
         try:
-            if self._panel is not None and self._visible:
-                self._panel.orderOut_(None)
-            self._visible = False
+            self._win.hide()
         except Exception as e:
             log.debug("HUD 隐藏失败：%s", e)
 
-    # ---- 任意线程可调用的公开接口 ----
+    # ---- 渲染 ----
 
-    def update(self, text: str) -> None:
-        AppHelper.callAfter(self._do_update, text)
+    def _wave(self) -> str:
+        top = len(_BLOCKS) - 1
+        return "".join(_BLOCKS[int(lv * top)] for lv in self._levels)
 
-    def update_partial(self, elapsed: int, partial: str, prefix: str = "🎙️") -> None:
-        tail = partial[-_MAX_CHARS:] if partial else "（聆听中…）"
-        self.update(f"{prefix} {elapsed}s ｜ {tail}")
-
-    def hide(self) -> None:
-        AppHelper.callAfter(self._do_hide)
+    def _redraw(self) -> None:
+        text = _tail(self._partial, _MAX_TAIL) or self._placeholder
+        main = f"{self._prefix} {self._elapsed}s {self._wave()}  {text}"
+        try:
+            self._win.show_lines(main, self._hint)
+        except Exception as e:
+            log.debug("HUD 更新失败：%s", e)

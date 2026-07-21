@@ -1,13 +1,14 @@
 # 🏝️ 小岛AI输入法
 
-**按住一个键说话，松手文字就出现在光标处。全程本地识别，你说的话永远不出你的 Mac。**
+**按一个键说话，文字就出现在光标处。全程本地识别，你说的话永远不出你的电脑。**
 
-Local-first AI voice typing for macOS — hold a key, speak, release. 100% on-device transcription.
+Local-first AI voice typing for macOS & Windows — press a key, speak, done. 100% on-device transcription.
 
 ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
-![Platform](https://img.shields.io/badge/Platform-macOS%20(Apple%20Silicon)-black)
+![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20(beta)-black)
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB)
 ![Engine](https://img.shields.io/badge/Engine-transcribe.cpp%20%2B%20SenseVoice-orange)
+![CI](https://github.com/xiaowuzicode/xiaodao-ime/actions/workflows/ci.yml/badge.svg)
 
 ![演示：单击左 Option 说话，再单击，文字落进 Claude Code 输入框](docs/demo.gif)
 
@@ -30,8 +31,9 @@ Local-first AI voice typing for macOS — hold a key, speak, release. 100% on-de
 
 | | |
 |---|---|
-| 🎙️ **单击说话** | 单击热键（默认左 Option）开始录音，再击一次转写并粘贴到**任意 App** 的光标处 |
-| 📺 **实时预览悬浮窗** | 边说边看：录音时屏幕浮窗实时显示识别文本（SenseVoice 全量重转伪流式，自带回头修正），松手一次性上屏 |
+| 🎙️ **单击说话** | 单击热键（Mac 默认左 Option，Windows 默认右 Ctrl）开始录音，再击一次转写并粘贴到**任意 App** 的光标处 |
+| 📺 **实时预览悬浮窗 + 声浪** | 边说边看：浮窗实时显示 🎙️ 计时 + **实时音量声浪** + 识别文本（伪流式全量重转，自带回头修正），一眼确认麦克风在听；润色阶段先亮出已转写全文，等待不再是黑盒 |
+| 🖥️ **macOS + Windows** | 同一套核心代码，Mac 菜单栏 / Windows 托盘两个原生入口；Windows 版 beta，CI 自动构建 |
 | ✨ **语音指令改写** | 选中任意文字，单击改写热键（默认右 Option）说「改成英文 / 口语化 / 扩写成三段」，原地替换 |
 | 🔁 **按住模式可选** | 也可切成按住说话松手出字 + 双击锁定长录音 |
 | 🌏 **中英混说** | SenseVoice 模型，支持 zh / 粤语 / en / ja / ko，自带标点 |
@@ -40,7 +42,7 @@ Local-first AI voice typing for macOS — hold a key, speak, release. 100% on-de
 | 📊 **输入统计** | 菜单栏显示累计输入段数/字数/比打字省下的时间 |
 | 📖 **热词纠错** | hotwords 提示词纠错 + replacements 离线替换表，专有名词不再写错 |
 | 🕘 **输入历史** | 菜单栏查看最近记录、点击复制，存本地 jsonl |
-| ⌨️ **热键可配** | 左/右 Option、右 Command、F19，菜单一键切换 |
+| ⌨️ **热键可配** | Mac：左/右 Option、右 Command、F19；Windows：右 Ctrl、F8、F9；菜单一键切换，还有「暂停热键」总开关（打游戏必备） |
 | 📦 **打包成独立 App** | 一条命令生成 .app，权限授给它自己，免终端、可开机自启 |
 | 🛡️ **防误触** | 组合键自动取消、短按丢弃、润色失败自动回退原文（fail-open） |
 
@@ -53,6 +55,12 @@ Local-first AI voice typing for macOS — hold a key, speak, release. 100% on-de
 ![五种内置润色风格，可自定义](docs/screenshot-styles.png)
 
 ## 快速开始
+
+### Windows（beta）
+
+从 [Actions](https://github.com/xiaowuzicode/xiaodao-ime/actions) 最新构建下载 `XiaodaoIME-windows-x64` 产物（或本地 `scripts\build_app_windows.bat` 自行打包），运行 `XiaodaoIME.exe`：托盘出现圆点图标即就绪，**单击右 Ctrl** 说话、再击出字。无需任何系统授权；未签名 exe 被 SmartScreen 提示属正常现象。首次启动自动下载模型（241MB）。
+
+### macOS
 
 ```bash
 git clone https://github.com/xiaowuzicode/xiaodao-ime.git && cd xiaodao-ime
@@ -82,14 +90,14 @@ scripts/make_app.sh && open dist
 
 ## 使用
 
-默认**单击模式**：**单击左 Option** 开始录音 → 说话 → **再单击一次** → 文字落进当前输入框（微信、飞书、浏览器、终端、IDE 都行）。
+默认**单击模式**：**单击听写热键**（Mac 左 Option / Windows 右 Ctrl）开始录音 → 说话 → **再单击一次** → 文字落进当前输入框（微信、飞书、浏览器、终端、IDE 都行）。
 
-- 录音时屏幕下方有**实时预览悬浮窗**（🎙️ 计时 + 边说边出的识别文本），说完松手一次性上屏；「设置 → 实时预览悬浮窗」可关
-- **语音改写**：先选中一段文字 → 单击**右 Option** → 说指令（「改成英文」「更正式一点」「扩写成三段」随便说）→ 再单击 → 原地替换。需要配置 AI 润色的 provider（改写不受润色开关影响）；没选中文字会提示并中止，模型失败不动原文
+- 录音时屏幕下方有**实时预览悬浮窗**：🎙️ 计时 + 实时声浪（确认麦克风在听）+ 边说边出的识别文本，副行提示「再按热键出字 · 按 Esc 取消」；「设置 → 实时预览悬浮窗」可关
+- **语音改写**：先选中一段文字 → 单击**改写热键**（Mac 右 Option / Windows F8）→ 说指令（「改成英文」「更正式一点」「扩写成三段」随便说）→ 再单击 → 原地替换。需要配置 AI 润色的 provider（改写不受润色开关影响）；没选中文字会提示并中止，模型失败不动原文
 - 「设置 → 录音方式」可切换为**按住模式**：按住说话松手出字，双击进入锁定录音
 - 录音中按任何其他键（含另一个热键）→ 自动取消；⌥+C 这类组合快捷键不会误触发录音
-- 「设置 → 听写热键 / 改写热键」可自由搭配左/右 Option、右 Command、F19（两键不能相同）
-- 菜单栏：状态 / 设置（热键、AI 润色、润色风格、配置文件）/ 历史 / 统计 / 日志
+- 「设置 → 听写热键 / 改写热键」自由搭配（两键不能相同）；「暂停热键」一键临时停用全部热键（图标变 💤），再点恢复
+- 菜单栏/托盘：状态 / 暂停热键 / 设置（热键、AI 润色、润色风格、配置文件）/ 历史 / 统计 / 日志
 
 图标状态：🏝️ 待机 → 🎙️ 录音中（显示已录秒数）→ ✍️ 转写中 → 🪄 润色中
 
@@ -126,7 +134,7 @@ ollama     http://localhost:11434/v1          (全离线，无需 key)
 }
 ```
 
-键可以是 bundle id 或应用名（大小写不敏感）；值是任意风格名，`"关闭"` 表示该 App 不润色。每个 App 的 bundle id 会打在日志里，转写一次即可查到。
+键在 macOS 上是 bundle id 或应用名（大小写不敏感），Windows 上是进程 exe 名（如 `"WeChat"`、`"Code"`）；值是任意风格名，`"关闭"` 表示该 App 不润色。每个 App 的标识会打在日志里，转写一次即可查到。
 
 ## 和同类产品比
 
@@ -141,26 +149,27 @@ ollama     http://localhost:11434/v1          (全离线，无需 key)
 | 场景感知（按 App 切风格） | ✅ | ❌ | ✅（其王牌功能） |
 | 可审计 | ✅ 开源 | ❌ | ❌ |
 
-## 架构
+## 架构（跨平台分层）
 
 ```
-app.py（rumps 菜单栏，主线程）
-  └─ xiaodao_ime/
-       ├─ config.py       路径与常量
-       ├─ settings.py     用户设置（settings.json，默认值深合并）
-       ├─ transcriber.py  SenseVoice GGUF 常驻内存（transcribe.cpp，Metal）
-       ├─ recorder.py     sounddevice 录音（16kHz 单声道）
-       ├─ hotkey.py       pynput 全局监听 + 按住/双击锁定状态机
-       ├─ polisher.py     可插拔 LLM 润色（OpenAI 兼容 / Anthropic，fail-open）
-       ├─ history.py      输入历史（jsonl）
-       ├─ feedback.py     提示音
-       ├─ paster.py       剪贴板保存/恢复 + Quartz 模拟 Cmd+V
-       └─ logger.py       日志
+main.py ──┬─ app.py      macOS 入口（rumps 菜单栏）
+          └─ app_win.py  Windows 入口（pystray 托盘）
+xiaodao_ime/                     核心层（平台无关）
+  ├─ hotkey.py       pynput 全局监听 + 单击/按住/锁定/暂停状态机
+  ├─ recorder.py     sounddevice 录音 + 实时电平（16kHz 单声道）
+  ├─ transcriber.py  SenseVoice GGUF 常驻内存（transcribe.cpp）
+  ├─ polisher.py     可插拔 LLM 润色/改写（OpenAI 兼容 / Anthropic，fail-open）
+  ├─ hud.py          悬浮窗组合逻辑（计时/声浪/文本/提示两行）
+  ├─ paster.py       粘贴与哨兵选区流程（剪贴板保存/恢复）
+  ├─ settings / history / context / feedback / config / logger
+  └─ platform/                   平台后端（唯一碰系统 API 的地方）
+       ├─ mac.py     AppKit 剪贴板 · Quartz 按键/权限 · NSPanel · afplay
+       └─ win.py     Win32 剪贴板(ctypes) · pynput 注入 · tkinter 浮窗 · winsound
 ```
 
-实测（Apple M4 Pro）：模型加载 ~0.2s（常驻）；3.5s 语音稳态转写 **36ms**。
+实测（Apple M4 Pro，Metal）：模型加载 ~0.2s（常驻）；3.5s 语音稳态转写 **36ms**。Windows 走 CPU 推理，速度稍慢但伪流式间隔会自适应。
 
-测试：`.venv/bin/python test_transcribe.py`（say 合成语音端到端）、`.venv/bin/python test_polish.py`（离线单测）。
+测试：`python test_hotkey.py`（状态机）、`python test_paster.py`（选区/粘贴/HUD）、`python test_polish.py`（润色）、`test_transcribe.py`（say 合成语音端到端，仅 Mac）。CI 在 macOS 与 Windows 双平台跑测试并自动构建 Windows 包。
 
 路线图与详细对标见 [ROADMAP.md](ROADMAP.md)。觉得有用的话，点个 ⭐ 是对开发最大的支持。
 

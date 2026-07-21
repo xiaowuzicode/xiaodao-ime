@@ -12,10 +12,17 @@ if _ROOT not in sys.path:
 from pynput import keyboard  # noqa: E402
 
 from xiaodao_ime.hotkey import HOTKEY_CHOICES, HotkeyController  # noqa: E402
+from xiaodao_ime.platform import (  # noqa: E402
+    DEFAULT_HOTKEY,
+    DEFAULT_REWRITE_HOTKEY,
+    IS_MAC,
+)
 from xiaodao_ime.settings import Settings  # noqa: E402
 
-ALT = keyboard.Key.alt        # macOS 上左 Option 的实际上报值
-ALT_R = keyboard.Key.alt_r    # 右 Option（默认改写热键）
+# 平台自适应：用当前平台默认热键的按键集合驱动状态机
+# （macOS 左 Option 实际上报 Key.alt；Windows 默认右 Ctrl / F8）
+ALT = min(HOTKEY_CHOICES[DEFAULT_HOTKEY][1], key=str)
+ALT_R = min(HOTKEY_CHOICES[DEFAULT_REWRITE_HOTKEY][1], key=str)
 OTHER = keyboard.KeyCode.from_char("c")
 
 
@@ -54,8 +61,11 @@ def make_controller(tmp, mode):
 
 
 def test_macos_alt_matches():
+    if not IS_MAC:
+        print("SKIP: macOS Key.alt 兼容（非 macOS）")
+        return
     # macOS 左 Option 上报 Key.alt，必须能命中 alt_l 配置
-    assert ALT in HOTKEY_CHOICES["alt_l"][1]
+    assert keyboard.Key.alt in HOTKEY_CHOICES["alt_l"][1]
     assert keyboard.Key.alt_r not in HOTKEY_CHOICES["alt_l"][1]
     print("PASS: macOS Key.alt 兼容")
 
@@ -169,6 +179,25 @@ def test_cross_hotkey_cancels():
     print("PASS: 双热键互斥取消")
 
 
+def test_pause_resume():
+    with tempfile.TemporaryDirectory() as d:
+        ctl, rec = make_controller(d, "toggle")
+        # 暂停后热键完全失效
+        ctl.set_paused(True)
+        ctl._on_press(ALT)
+        ctl._on_release(ALT)
+        assert not rec.recording and not ctl._recording
+        # 恢复后正常工作
+        ctl.set_paused(False)
+        ctl._on_press(ALT)
+        ctl._on_release(ALT)
+        assert rec.recording
+        # 录音中暂停 => 立即中止
+        ctl.set_paused(True)
+        assert not rec.recording and not ctl._recording
+    print("PASS: 暂停/恢复热键")
+
+
 def test_rewrite_prompt_build():
     from xiaodao_ime.polisher import Polisher
     with tempfile.TemporaryDirectory() as d:
@@ -193,6 +222,7 @@ if __name__ == "__main__":
     test_hold_combo_cancels()
     test_rewrite_channel()
     test_cross_hotkey_cancels()
+    test_pause_resume()
     test_rewrite_prompt_build()
     time.sleep(0.3)  # 等 worker 线程退出
     print("\n热键状态机测试全部通过 ✅")

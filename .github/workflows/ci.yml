@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Run tests
+        run: |
+          python test_hotkey.py
+          python test_polish.py
+          python test_paster.py
+
+  test-and-build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Run tests
+        run: |
+          python test_hotkey.py
+          python test_polish.py
+          python test_paster.py
+      - name: Build exe (PyInstaller)
+        run: |
+          pip install pyinstaller
+          pyinstaller --noconfirm --clean --windowed --name XiaodaoIME --collect-all transcribe_cpp --collect-all transcribe_cpp_native main.py
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: XiaodaoIME-windows-x64
+          path: dist/XiaodaoIME/
+          retention-days: 30

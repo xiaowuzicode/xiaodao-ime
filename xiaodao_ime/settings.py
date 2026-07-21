@@ -9,16 +9,18 @@ import os
 
 from xiaodao_ime.config import BASE_DIR
 from xiaodao_ime.logger import get_logger
+from xiaodao_ime.platform import DEFAULT_HOTKEY, DEFAULT_REWRITE_HOTKEY
 
 log = get_logger(__name__)
 
 SETTINGS_PATH = os.path.join(BASE_DIR, "settings.json")
 
 DEFAULTS = {
-    # 听写热键：alt_l 左Option / alt_r 右Option / cmd_r 右Command / f19
-    "hotkey": "alt_l",
+    # 听写热键（按平台）：macOS alt_l 左Option / alt_r / cmd_r / f19；
+    # Windows ctrl_r 右Ctrl / f8 / f9 / alt_r
+    "hotkey": DEFAULT_HOTKEY,
     # 语音改写热键（选中文字后按它说指令，如「改成英文」），须与听写热键不同
-    "rewrite_hotkey": "alt_r",
+    "rewrite_hotkey": DEFAULT_REWRITE_HOTKEY,
     # 录音方式：toggle 单击开始再击结束（默认）/ hold 按住说话+双击锁定
     "record_mode": "toggle",
     # 录音时悬浮窗实时预览识别文本

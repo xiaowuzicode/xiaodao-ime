@@ -28,6 +28,7 @@ from pynput import keyboard
 
 from xiaodao_ime.config import DOUBLE_TAP_WINDOW, MIN_HOLD_SECONDS
 from xiaodao_ime.context import STYLE_OFF, frontmost_app, pick_style
+from xiaodao_ime.platform import DEFAULT_HOTKEY, DEFAULT_REWRITE_HOTKEY, IS_MAC
 from xiaodao_ime.feedback import play
 from xiaodao_ime.logger import get_logger
 from xiaodao_ime.paster import grab_selection, paste_text, restore_clipboard
@@ -48,14 +49,22 @@ def _keyset(*names) -> frozenset:
 
 
 # settings.json 的 hotkey / rewrite_hotkey 字段 -> (菜单显示名, 匹配按键集合)
-HOTKEY_CHOICES = {
-    "alt_l": ("左 Option", _keyset("alt_l", "alt")),
-    "alt_r": ("右 Option", _keyset("alt_r")),
-    "cmd_r": ("右 Command", _keyset("cmd_r")),
-    "f19": ("F19", _keyset("f19")),
-}
-DEFAULT_HOTKEY = "alt_l"
-DEFAULT_REWRITE_HOTKEY = "alt_r"
+if IS_MAC:
+    HOTKEY_CHOICES = {
+        "alt_l": ("左 Option", _keyset("alt_l", "alt")),
+        "alt_r": ("右 Option", _keyset("alt_r")),
+        "cmd_r": ("右 Command", _keyset("cmd_r")),
+        "f19": ("F19", _keyset("f19")),
+    }
+else:
+    # Windows：右 Alt 在欧洲布局是 AltGr（pynput 可能上报 alt_gr），不做默认；
+    # 左 Alt 会聚焦窗口菜单栏，不提供。
+    HOTKEY_CHOICES = {
+        "ctrl_r": ("右 Ctrl", _keyset("ctrl_r")),
+        "f8": ("F8", _keyset("f8")),
+        "f9": ("F9", _keyset("f9")),
+        "alt_r": ("右 Alt（AltGr 键盘慎用）", _keyset("alt_r", "alt_gr")),
+    }
 
 RECORD_MODES = {
     "toggle": "单击开始 / 再击结束",
@@ -91,6 +100,7 @@ class HotkeyController:
             rewrite_hotkey, HOTKEY_CHOICES[DEFAULT_REWRITE_HOTKEY])[1]
         self._mode = mode if mode in RECORD_MODES else DEFAULT_MODE
 
+        self._paused = False            # 暂停热键（菜单总开关），True 时忽略一切按键
         self._channel = "dictate"       # 当前录音属于哪个通道：dictate / rewrite
         self._held = False              # 热键当前是否被按住
         self._suppressed = False        # toggle：按住热键期间出现组合键，本次单击作废
@@ -131,6 +141,19 @@ class HotkeyController:
             self._abort_recording("切换录音方式")
         self._mode = mode
         log.info("录音方式已切换为：%s", RECORD_MODES[mode])
+
+    @property
+    def paused(self) -> bool:
+        return self._paused
+
+    def set_paused(self, paused: bool) -> None:
+        """暂停/恢复热键监听（不销毁 listener，只忽略事件）。"""
+        if paused and self._recording:
+            self._abort_recording("暂停热键")
+        self._paused = bool(paused)
+        self._held = False
+        self._suppressed = False
+        log.info("热键已%s", "暂停" if paused else "恢复")
 
     # ---- 内部工具 ----
 
@@ -177,14 +200,27 @@ class HotkeyController:
         return (self._hud is not None and self._settings is not None
                 and bool(self._settings.data.get("live_preview", True)))
 
+    def _hint_text(self) -> str:
+        """HUD 副行操作提示（交互可发现性：告诉用户怎么结束/取消）。"""
+        if self._mode == "toggle" or self._locked:
+            return "再按热键出字 · 按 Esc 取消"
+        return "松开出字 · 快速双击可锁定 · 按 Esc 取消"
+
     def _start_preview(self) -> None:
         if not self._preview_enabled():
             return
-        prefix = "🪄" if self._channel == "rewrite" else "🎙️"
-        self._hud.update_partial(0, "" if self._channel == "dictate" else "说出改写指令…", prefix)
+        rewrite = self._channel == "rewrite"
+        self._hud.begin(
+            prefix="🪄" if rewrite else "🎙️",
+            placeholder="说出改写指令…" if rewrite else "聆听中…",
+            hint=self._hint_text(),
+        )
         self._preview_stop = threading.Event()
         threading.Thread(
-            target=self._preview_loop, args=(self._preview_stop, prefix), daemon=True
+            target=self._preview_loop, args=(self._preview_stop,), daemon=True
+        ).start()
+        threading.Thread(
+            target=self._level_loop, args=(self._preview_stop,), daemon=True
         ).start()
 
     def _stop_preview(self) -> None:
@@ -192,15 +228,25 @@ class HotkeyController:
             self._preview_stop.set()
             self._preview_stop = None
 
-    def _preview_loop(self, stop_event: threading.Event, prefix: str) -> None:
+    def _level_loop(self, stop_event: threading.Event) -> None:
+        """~12Hz 刷新 HUD 声浪：给用户「麦克风正在收到声音」的即时确认。"""
+        while not stop_event.wait(0.08):
+            if not self._recording:
+                break
+            try:
+                self._hud.set_level(self._recorder.level())
+                self._hud.set_partial(self._recorder.duration(), "")
+            except Exception as e:
+                log.debug("声浪刷新失败，停止：%s", e)
+                break
+
+    def _preview_loop(self, stop_event: threading.Event) -> None:
         interval = 0.7
         while not stop_event.wait(interval):
             if not self._recording:
                 break
             pcm = self._recorder.snapshot()
-            elapsed = int(self._recorder.duration())
             if len(pcm) < _PREVIEW_MIN_SAMPLES:
-                self._hud.update_partial(elapsed, "", prefix)
                 continue
             try:
                 t0 = time.perf_counter()
@@ -212,7 +258,7 @@ class HotkeyController:
                 break
             if stop_event.is_set() or not self._recording:
                 break
-            self._hud.update_partial(int(self._recorder.duration()), text, prefix)
+            self._hud.set_partial(self._recorder.duration(), text)
 
     # ---- 键盘事件 ----
 
@@ -228,6 +274,8 @@ class HotkeyController:
             if not self._saw_event:
                 self._saw_event = True
                 log.info("✅ 已收到键盘事件，输入监听权限正常（首个按键：%s）", key)
+            if self._paused:
+                return
             channel = self._match_channel(key)
             if channel is not None:
                 if self._mode == "toggle":
@@ -241,6 +289,8 @@ class HotkeyController:
 
     def _on_release(self, key) -> None:  # noqa: ANN001
         try:
+            if self._paused:
+                return
             channel = self._match_channel(key)
             if channel is None:
                 return
@@ -377,7 +427,7 @@ class HotkeyController:
         play("stop", self._settings)
         self._status("transcribing")
         if self._hud is not None:
-            self._hud.update("✍️ 转写中…")
+            self._hud.set_status("✍️ 转写中…")
         target = (self._rewrite_and_replace if self._channel == "rewrite"
                   else self._transcribe_and_paste)
         threading.Thread(target=target, args=(pcm,), daemon=True).start()
@@ -405,7 +455,8 @@ class HotkeyController:
                 else:
                     self._status("polishing")
                     if self._hud is not None:
-                        self._hud.update("🪄 润色中…")
+                        # 等待不做黑盒：润色期间先把已转写全文亮出来
+                        self._hud.set_status("🪄 润色中…", text)
                     polished = self._polisher.polish(text, style=style)
                     if polished:
                         text = polished  # 润色失败时 polish 返回 None，直接用原始转写
@@ -436,7 +487,7 @@ class HotkeyController:
                              "先选中要改写的文本，再按改写热键说指令")
                 return
             if self._hud is not None:
-                self._hud.update("✍️ 识别指令中…")
+                self._hud.set_status("✍️ 识别指令中…", selection)
             instruction, _ = self._transcriber.transcribe(pcm)
             instruction = (instruction or "").strip()
             if not instruction:
@@ -445,7 +496,7 @@ class HotkeyController:
                 return
             log.info("改写指令：%r，选区 %d 字符", instruction, len(selection))
             if self._hud is not None:
-                self._hud.update(f"🪄 改写中：{instruction[:28]}")
+                self._hud.set_status(f"🪄 改写中：{instruction[:24]}", selection)
             self._status("polishing")
             result = self._polisher.rewrite(selection, instruction)
             if not result:

@@ -101,9 +101,11 @@ class XiaodaoIME(rumps.App):
         self._history_menu = rumps.MenuItem("历史")
         self._history_rendered = -1
         self._stats_item = rumps.MenuItem("统计")  # 无 callback => 置灰展示
+        self._pause_item = rumps.MenuItem("暂停热键", callback=self.toggle_pause)
 
         self.menu = [
             self._status_item,
+            self._pause_item,
             None,
             settings_menu,
             self._history_menu,
@@ -310,6 +312,20 @@ class XiaodaoIME(rumps.App):
                 self._hotkey.set_rewrite_trigger(name)
             self._sync_menu_state()
         return _cb
+
+    def toggle_pause(self, _) -> None:
+        """临时停用/恢复热键（打游戏、热键冲突时用），不退出 App。"""
+        paused = not (self._hotkey.paused if self._hotkey else False)
+        if self._hotkey:
+            self._hotkey.set_paused(paused)
+        self._pause_item.state = 1 if paused else 0
+        self._pause_item.title = "恢复热键" if paused else "暂停热键"
+        if paused:
+            self.title = "💤"
+            self._status_item.title = "状态：已暂停"
+        else:
+            self.title = ICON_IDLE
+            self._status_item.title = "状态：待机"
 
     def toggle_preview(self, _) -> None:
         current = bool(self._settings.data.get("live_preview", True))

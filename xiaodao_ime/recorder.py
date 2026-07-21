@@ -59,6 +59,21 @@ class Recorder:
             return np.zeros(0, dtype=np.float32)
         return np.concatenate(frames, axis=0).reshape(-1).astype(np.float32)
 
+    def level(self, window_seconds: float = 0.12) -> float:
+        """最近 window_seconds 音频的响度（0~1，RMS 开方压缩），HUD 声浪用。"""
+        with self._lock:
+            frames = self._frames[-8:]
+            if not frames:
+                return 0.0
+            pcm = np.concatenate(frames, axis=0).reshape(-1)
+        n = int(self._samplerate * window_seconds)
+        seg = pcm[-n:]
+        if seg.size == 0:
+            return 0.0
+        rms = float(np.sqrt(np.mean(np.square(seg))))
+        # 语音 RMS 典型 0.005~0.2：放大后开方压缩，让小音量也有可见波动
+        return min(1.0, (rms * 14.0) ** 0.5)
+
     def duration(self) -> float:
         """当前已录时长（秒）。"""
         if not self._started_at:
