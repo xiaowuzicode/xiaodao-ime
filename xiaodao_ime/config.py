@@ -54,8 +54,10 @@ DOUBLE_TAP_WINDOW = 0.35
 CLIPBOARD_RESTORE_DELAY = 0.4
 
 # 菜单栏状态图标（40×40 PNG，rumps 按 20pt 模板图标渲染；
-# 造型改动见 scripts/gen_menubar_icons.py，录音态是唯一彩色图标）
-MENUBAR_ICON_DIR = os.path.join(PROJECT_ROOT, "resources", "menubar")
+# 造型改动见 scripts/gen_menubar_icons.py，录音态是唯一彩色图标）。
+# PyInstaller 冻结时资源在 _MEIPASS（build_app.sh 用 --add-data 收入）
+_RES_ROOT = getattr(sys, "_MEIPASS", PROJECT_ROOT)
+MENUBAR_ICON_DIR = os.path.join(_RES_ROOT, "resources", "menubar")
 ICON_IDLE = os.path.join(MENUBAR_ICON_DIR, "idle.png")
 ICON_RECORDING = os.path.join(MENUBAR_ICON_DIR, "recording.png")
 ICON_TRANSCRIBING = os.path.join(MENUBAR_ICON_DIR, "transcribing.png")

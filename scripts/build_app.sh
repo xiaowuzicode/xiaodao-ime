@@ -24,6 +24,7 @@ rm -rf build "dist/XiaodaoIME" "dist/XiaodaoIME.app" "dist/$APP_NAME.app"
   --osx-bundle-identifier ai.xiaodao.ime \
   --collect-all transcribe_cpp \
   --collect-all transcribe_cpp_native \
+  --add-data "$ROOT/resources/menubar:resources/menubar" \
   app.py
 
 APP="dist/XiaodaoIME.app"
