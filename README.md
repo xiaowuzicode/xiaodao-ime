@@ -33,7 +33,8 @@ Local-first AI voice typing for macOS & Windows — press a key, speak, done. 10
 |---|---|
 | 🎙️ **单击说话** | 单击热键（Mac 默认左 Option，Windows 默认右 Ctrl）开始录音，再击一次转写并粘贴到**任意 App** 的光标处 |
 | 📺 **实时预览悬浮窗 + 声浪** | 边说边看：浮窗实时显示 🎙️ 计时 + **实时音量声浪** + 识别文本（伪流式全量重转，自带回头修正），一眼确认麦克风在听；润色阶段先亮出已转写全文，等待不再是黑盒 |
-| 🖥️ **macOS + Windows** | 同一套核心代码，Mac 菜单栏 / Windows 托盘两个原生入口；Windows 版 beta，CI 自动构建 |
+| 🖥️ **macOS + Windows** | 同一套核心代码，Mac 菜单栏 / Windows 托盘两个原生入口；双端一句话安装，Windows 包随 Release 发布（beta） |
+| ⚙️ **原生设置窗口** | macOS 图形化设置面板：热键、录音方式、AI 润色（服务商/Key/模型/风格）一站配好，保存即生效；缺权限时菜单一键直达系统设置授权页（Windows 托盘可直达麦克风隐私设置） |
 | ✨ **语音指令改写** | 选中任意文字，单击改写热键（默认右 Option）说「改成英文 / 口语化 / 扩写成三段」，原地替换 |
 | 🔁 **按住模式可选** | 也可切成按住说话松手出字 + 双击锁定长录音 |
 | 🌏 **中英混说** | SenseVoice 模型，支持 zh / 粤语 / en / ja / ko，自带标点 |
@@ -48,11 +49,11 @@ Local-first AI voice typing for macOS & Windows — press a key, speak, done. 10
 
 ## 界面一览
 
-| 菜单栏 | 录音计时 |
-|---|---|
-| ![菜单栏状态与设置](docs/screenshot-menu.png) | ![录音中菜单栏实时计时](docs/screenshot-recording.png) |
+![原生设置窗口：热键/录音方式/AI 润色一站配好](docs/screenshot-settings.png)
 
 ![五种内置润色风格，可自定义](docs/screenshot-styles.png)
+
+菜单栏图标为单色声浪模板图标（自动适配深浅色）：声浪＝待机 → 红色声浪＝录音中 → ···＝转写中 → ✦＝润色中。
 
 ## 快速开始
 
@@ -91,9 +92,17 @@ scripts/make_app.sh && open dist
 
 </details>
 
-### Windows（beta）
+### Windows —— 一句话安装（beta）
 
-从 [Actions](https://github.com/xiaowuzicode/xiaodao-ime/actions) 最新构建下载 `XiaodaoIME-windows-x64` 产物（或本地 `scripts\build_app_windows.bat` 自行打包），运行 `XiaodaoIME.exe`：托盘出现圆点图标即就绪，**单击右 Ctrl** 说话、再击出字。无需任何系统授权；未签名 exe 被 SmartScreen 提示属正常现象。首次启动自动下载模型（241MB）。
+PowerShell 里粘贴：
+
+```powershell
+irm https://raw.githubusercontent.com/xiaowuzicode/xiaodao-ime/main/install.ps1 | iex
+```
+
+自动下载最新 [Release](https://github.com/xiaowuzicode/xiaodao-ime/releases) 的 Windows 包 → 装到本机 → 建开始菜单快捷方式 → 启动。托盘出现声浪图标即就绪，**单击右 Ctrl** 说话、再击出字。无需任何系统授权；未签名 exe 被 SmartScreen 提示属正常（点「更多信息 → 仍要运行」）。首次启动自动下载模型（241MB）。
+
+也可手动：[Releases](https://github.com/xiaowuzicode/xiaodao-ime/releases) 下载 `XiaodaoIME-windows-x64.zip` 解压运行，或本地 `scripts\build_app_windows.bat` 自行打包。
 
 ### 授权（macOS 首次启动）
 
@@ -172,6 +181,7 @@ ollama     http://localhost:11434/v1          (全离线，无需 key)
 
 ```
 main.py ──┬─ app.py      macOS 入口（rumps 菜单栏）
+          │    └─ settings_window.py  原生设置窗口（AppKit）
           └─ app_win.py  Windows 入口（pystray 托盘）
 xiaodao_ime/                     核心层（平台无关）
   ├─ hotkey.py       pynput 全局监听 + 单击/按住/锁定/暂停状态机

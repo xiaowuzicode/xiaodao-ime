@@ -27,12 +27,15 @@ curl -fsSL https://raw.githubusercontent.com/xiaowuzicode/xiaodao-ime/main/insta
 
 ### Windows（beta）
 
-无需系统授权。两条路：
+无需系统授权。一条命令（PowerShell）：
 
-- 从 [GitHub Actions](https://github.com/xiaowuzicode/xiaodao-ime/actions) 最新构建下载 `XiaodaoIME-windows-x64` 产物，运行 `XiaodaoIME.exe`；
-- 或本地构建：`pip install -r requirements.txt` 后跑 `scripts\build_app_windows.bat`。
+```powershell
+irm https://raw.githubusercontent.com/xiaowuzicode/xiaodao-ime/main/install.ps1 | iex
+```
 
-默认热键：右 Ctrl 听写、F8 改写。首次启动自动下载模型（241MB）。
+自动下载最新 Release 的 `XiaodaoIME-windows-x64.zip` 装到 `%LOCALAPPDATA%\Programs\XiaodaoIME` 并启动。备选：Releases 页手动下载解压，或 `pip install -r requirements.txt` 后跑 `scripts\build_app_windows.bat` 本地构建。
+
+默认热键：右 Ctrl 听写、F8 改写。首次启动自动下载模型（241MB）。SmartScreen 提示属正常（未签名 exe）。
 
 ## 运行与测试
 
