@@ -57,9 +57,18 @@ _STATE_LABELS = {
 
 
 def _make_image(color: str) -> Image.Image:
+    """与 macOS 菜单栏同款「声浪」glyph（5 根圆头竖条），按状态着色。"""
     img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    draw.ellipse((8, 8, 56, 56), fill=color)
+    heights = [20, 36, 52, 36, 20]
+    bar_w, gap = 7, 4
+    total = len(heights) * bar_w + (len(heights) - 1) * gap
+    x = (64 - total) // 2
+    for h in heights:
+        y0 = (64 - h) // 2
+        draw.rounded_rectangle([x, y0, x + bar_w - 1, y0 + h - 1],
+                               radius=bar_w // 2, fill=color)
+        x += bar_w + gap
     return img
 
 

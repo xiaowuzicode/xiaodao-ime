@@ -20,6 +20,7 @@ import rumps  # noqa: E402
 
 from xiaodao_ime.config import (  # noqa: E402
     ICON_IDLE,
+    ICON_PAUSED,
     ICON_POLISHING,
     ICON_RECORDING,
     ICON_TRANSCRIBING,
@@ -47,6 +48,7 @@ _STATUS_ICON = {
     "recording": ICON_RECORDING,
     "transcribing": ICON_TRANSCRIBING,
     "polishing": ICON_POLISHING,
+    "paused": ICON_PAUSED,
 }
 _STATUS_LABEL = {
     "idle": "状态：待机",
@@ -58,7 +60,8 @@ _STATUS_LABEL = {
 
 class XiaodaoIME(rumps.App):
     def __init__(self):
-        super().__init__(ICON_IDLE, quit_button=None)
+        super().__init__("小岛AI输入法", icon=ICON_IDLE, template=True,
+                         quit_button=None)
         self._settings = Settings()
         self._polisher = Polisher(self._settings)
 
@@ -252,7 +255,7 @@ class XiaodaoIME(rumps.App):
     def _tick(self, _) -> None:
         """每秒回调：录音中在菜单栏显示已录时长（尤其锁定录音时的「还在录」确认）。"""
         if self._state == "recording" and self._rec_started:
-            self.title = f"{ICON_RECORDING} {int(time.time() - self._rec_started)}s"
+            self.title = f"{int(time.time() - self._rec_started)}s"
 
     def _refresh_history(self, _) -> None:
         """rumps.Timer 主线程回调：历史有新条目时重绘子菜单与统计。"""
@@ -321,10 +324,10 @@ class XiaodaoIME(rumps.App):
         self._pause_item.state = 1 if paused else 0
         self._pause_item.title = "恢复热键" if paused else "暂停热键"
         if paused:
-            self.title = "💤"
+            self._apply_icon("paused")
             self._status_item.title = "状态：已暂停"
         else:
-            self.title = ICON_IDLE
+            self._apply_icon("idle")
             self._status_item.title = "状态：待机"
 
     def toggle_preview(self, _) -> None:
@@ -375,13 +378,21 @@ class XiaodaoIME(rumps.App):
 
     # ---- 状态与通用菜单 ----
 
+    def _apply_icon(self, state: str) -> None:
+        """切换菜单栏图标。录音态是唯一彩色图标（固定红），须关掉模板渲染；
+        其余状态全走模板图标（黑+alpha，系统自动适配深浅色菜单栏）。"""
+        self.template = state != "recording"
+        self.icon = _STATUS_ICON.get(state, ICON_IDLE)
+        if state != "recording":
+            self.title = None  # 只有录音计时需要图标旁的文字
+
     def _set_status(self, state: str) -> None:
         """由子线程调用，更新菜单栏图标与菜单文字。"""
         try:
             self._state = state
             if state == "recording":
                 self._rec_started = time.time()
-            self.title = _STATUS_ICON.get(state, ICON_IDLE)
+            self._apply_icon(state)
             self._status_item.title = _STATUS_LABEL.get(state, "状态：待机")
         except Exception as e:
             log.debug("更新状态显示失败：%s", e)

@@ -17,7 +17,7 @@ curl -fsSL https://raw.githubusercontent.com/xiaowuzicode/xiaodao-ime/main/insta
 
 **装完必须提醒用户手动做一步（你无法代劳）**：
 系统设置 → 隐私与安全性，为「小岛AI输入法」开启 **输入监听 / 辅助功能 / 麦克风**，
-然后退出重开 App。菜单栏出现 🏝️ 即就绪：单击左 Option 说话，再击出字。
+然后退出重开 App。菜单栏出现声浪图标 ·ıllı· 即就绪：单击左 Option 说话，再击出字。
 
 常见问题：
 
