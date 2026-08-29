@@ -53,8 +53,11 @@ DOUBLE_TAP_WINDOW = 0.35
 # 粘贴后恢复原剪贴板的延迟（秒）
 CLIPBOARD_RESTORE_DELAY = 0.4
 
-# 菜单栏图标状态
-ICON_IDLE = "🏝️"
-ICON_RECORDING = "🎙️"
-ICON_TRANSCRIBING = "✍️"
-ICON_POLISHING = "🪄"
+# 菜单栏状态图标（40×40 PNG，rumps 按 20pt 模板图标渲染；
+# 造型改动见 scripts/gen_menubar_icons.py，录音态是唯一彩色图标）
+MENUBAR_ICON_DIR = os.path.join(PROJECT_ROOT, "resources", "menubar")
+ICON_IDLE = os.path.join(MENUBAR_ICON_DIR, "idle.png")
+ICON_RECORDING = os.path.join(MENUBAR_ICON_DIR, "recording.png")
+ICON_TRANSCRIBING = os.path.join(MENUBAR_ICON_DIR, "transcribing.png")
+ICON_POLISHING = os.path.join(MENUBAR_ICON_DIR, "polishing.png")
+ICON_PAUSED = os.path.join(MENUBAR_ICON_DIR, "paused.png")
