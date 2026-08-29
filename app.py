@@ -18,6 +18,8 @@ if _ROOT not in sys.path:
 
 import rumps  # noqa: E402
 
+from settings_window import SettingsWindowController  # noqa: E402
+
 from xiaodao_ime.config import (  # noqa: E402
     ICON_IDLE,
     ICON_PAUSED,
@@ -35,7 +37,7 @@ from xiaodao_ime.hotkey import HOTKEY_CHOICES, RECORD_MODES, HotkeyController  #
 from xiaodao_ime.hud import PreviewHUD  # noqa: E402
 from xiaodao_ime.logger import get_logger  # noqa: E402
 from xiaodao_ime.paster import copy_to_clipboard  # noqa: E402
-from xiaodao_ime.permissions import check_permissions  # noqa: E402
+from xiaodao_ime.permissions import check_permissions, open_privacy_settings  # noqa: E402
 from xiaodao_ime.polisher import Polisher, get_styles  # noqa: E402
 from xiaodao_ime.recorder import Recorder  # noqa: E402
 from xiaodao_ime.settings import Settings  # noqa: E402
@@ -90,14 +92,14 @@ class XiaodaoIME(rumps.App):
         self._polish_item = rumps.MenuItem("AI 润色", callback=self.toggle_polish)
         self._style_menu = rumps.MenuItem("润色风格")
         self._preview_item = rumps.MenuItem("实时预览悬浮窗", callback=self.toggle_preview)
-        settings_menu = rumps.MenuItem("设置")
+        settings_menu = rumps.MenuItem("快捷设置")
         settings_menu.add(hotkey_menu)
         settings_menu.add(rewrite_menu)
         settings_menu.add(mode_menu)
         settings_menu.add(self._preview_item)
         settings_menu.add(self._polish_item)
         settings_menu.add(self._style_menu)
-        settings_menu.add(rumps.MenuItem("打开配置文件", callback=self.open_settings))
+        settings_menu.add(rumps.MenuItem("编辑完整配置(JSON)", callback=self.open_settings))
         settings_menu.add(rumps.MenuItem("重新加载配置", callback=self.reload_settings))
 
         self._history = History(self._settings)
@@ -106,10 +108,12 @@ class XiaodaoIME(rumps.App):
         self._stats_item = rumps.MenuItem("统计")  # 无 callback => 置灰展示
         self._pause_item = rumps.MenuItem("暂停热键", callback=self.toggle_pause)
 
+        self._settings_win = None
         self.menu = [
             self._status_item,
             self._pause_item,
             None,
+            rumps.MenuItem("设置…", callback=self.open_settings_window),
             settings_menu,
             self._history_menu,
             self._stats_item,
@@ -137,14 +141,18 @@ class XiaodaoIME(rumps.App):
         perms = check_permissions(prompt=True)
         if not perms["input_monitoring"] or not perms["accessibility"]:
             missing = []
+            self._perm_missing = []
             if not perms["input_monitoring"]:
                 missing.append("输入监听")
+                self._perm_missing.append("input_monitoring")
             if not perms["accessibility"]:
                 missing.append("辅助功能")
-            self._status_item.title = f"状态：缺权限（{'、'.join(missing)}）"
+                self._perm_missing.append("accessibility")
+            self._status_item.title = f"状态：缺权限（{'、'.join(missing)}）→ 点我去授权"
+            self._status_item.set_callback(self._open_perm_settings)
             rumps.notification(
                 "小岛AI输入法", f"缺少权限：{'、'.join(missing)}",
-                "请到 系统设置→隐私与安全性 勾选本程序；"
+                "点菜单栏「状态」一行可直达系统设置对应页面；"
                 "若列表里已有旧条目仍无效，先移除再重新添加，然后重启本程序。",
             )
 
@@ -360,23 +368,45 @@ class XiaodaoIME(rumps.App):
         self._sync_menu_state()
         log.info("AI 润色已%s", "开启" if polish["enabled"] else "关闭")
 
-    def reload_settings(self, _) -> None:
-        """外部编辑 settings.json 后手动重载，无需重启进程。"""
-        self._settings.load()
+    def _apply_settings(self) -> None:
+        """把 settings 当前值应用到热键控制器与菜单（设置窗口保存/重载配置共用）。"""
         if self._hotkey:
             self._hotkey.set_trigger(self._settings.data.get("hotkey", "alt_l"))
             self._hotkey.set_rewrite_trigger(self._settings.data.get("rewrite_hotkey", "alt_r"))
             self._hotkey.set_mode(self._settings.data.get("record_mode", "toggle"))
         self._sync_menu_state()
+
+    def reload_settings(self, _) -> None:
+        """外部编辑 settings.json 后手动重载，无需重启进程。"""
+        self._settings.load()
+        self._apply_settings()
         log.info("配置已重新加载")
+
+    def open_settings_window(self, _) -> None:
+        """原生设置窗口（rumps 菜单回调在主线程，可直接建 NSWindow）。"""
+        try:
+            if self._settings_win is None:
+                self._settings_win = (
+                    SettingsWindowController.alloc().initWithSettings_onSave_(
+                        self._settings, self._apply_settings))
+            self._settings_win.show()
+        except Exception as e:
+            log.error("打开设置窗口失败：%s", e)
+            self.open_settings(None)  # 兜底退回编辑 JSON
 
     def open_settings(self, _) -> None:
         try:
-            subprocess.Popen(["open", self._settings.ensure_file()])
+            # open -t：强制文本编辑器（.json 默认程序常被浏览器抢注）
+            subprocess.Popen(["open", "-t", self._settings.ensure_file()])
         except Exception as e:
             log.warning("打开配置文件失败：%s", e)
 
     # ---- 状态与通用菜单 ----
+
+    def _open_perm_settings(self, _) -> None:
+        """状态行点击：逐个打开缺失权限对应的系统设置面板（停在最后一个）。"""
+        for section in (getattr(self, "_perm_missing", None) or ["input_monitoring"]):
+            open_privacy_settings(section)
 
     def _apply_icon(self, state: str) -> None:
         """切换菜单栏图标。录音态是唯一彩色图标（固定红），须关掉模板渲染；

@@ -10,3 +10,9 @@ def check_permissions(prompt: bool = False) -> dict:
     """返回 {"input_monitoring": bool, "accessibility": bool}；
     prompt=True 时对缺失项触发系统授权弹窗（如果平台支持）。"""
     return _platform.backend.check_permissions(prompt=prompt)
+
+
+def open_privacy_settings(section: str) -> None:
+    """跳转系统隐私设置对应面板。
+    section: input_monitoring / accessibility / microphone。"""
+    _platform.backend.open_privacy_settings(section)

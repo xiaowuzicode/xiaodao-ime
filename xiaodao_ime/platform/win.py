@@ -257,3 +257,14 @@ class HUDWindow:
         if not self._started:
             return
         self._queue.put(("hide",))
+
+
+def open_privacy_settings(section: str) -> None:
+    """Windows 仅麦克风受隐私设置控制；其余 section 落到隐私设置首页。"""
+    uri = ("ms-settings:privacy-microphone" if section == "microphone"
+           else "ms-settings:privacy")
+    try:
+        os.startfile(uri)  # noqa: S606
+        log.info("已打开 Windows 隐私设置：%s", section)
+    except Exception as e:
+        log.warning("打开隐私设置失败：%s", e)
