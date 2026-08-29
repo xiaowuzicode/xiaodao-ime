@@ -56,11 +56,22 @@ Local-first AI voice typing for macOS & Windows — press a key, speak, done. 10
 
 ## 快速开始
 
-### Windows（beta）
+### macOS —— 一句话安装
 
-从 [Actions](https://github.com/xiaowuzicode/xiaodao-ime/actions) 最新构建下载 `XiaodaoIME-windows-x64` 产物（或本地 `scripts\build_app_windows.bat` 自行打包），运行 `XiaodaoIME.exe`：托盘出现圆点图标即就绪，**单击右 Ctrl** 说话、再击出字。无需任何系统授权；未签名 exe 被 SmartScreen 提示属正常现象。首次启动自动下载模型（241MB）。
+```bash
+curl -fsSL https://raw.githubusercontent.com/xiaowuzicode/xiaodao-ime/main/install.sh | bash
+```
 
-### macOS
+一条命令完成：拉代码 → 装依赖 → 下模型（国内网络自动切 hf-mirror 镜像）→ 打包成独立 App → 装入「应用程序」并启动。装完只剩一步人工操作：授权（见下）。
+
+**在用 Codex / Claude Code 这类 AI 助手？** 直接把这句话丢给它：
+
+> 帮我安装小岛AI输入法：https://github.com/xiaowuzicode/xiaodao-ime ，按仓库里 AGENTS.md 的说明操作
+
+仓库内置 [AGENTS.md](AGENTS.md)，AI 助手打开就知道怎么装、怎么排错、改代码要守什么规矩。
+
+<details>
+<summary>手动安装（想自己控制每一步）</summary>
 
 ```bash
 git clone https://github.com/xiaowuzicode/xiaodao-ime.git && cd xiaodao-ime
@@ -78,7 +89,15 @@ scripts/make_app.sh && open dist
 ./start.sh
 ```
 
-首次启动到**系统设置 → 隐私与安全性**授予三项权限（授给启动它的宿主：App 方式就是「小岛AI输入法」，终端方式就是你的终端）：
+</details>
+
+### Windows（beta）
+
+从 [Actions](https://github.com/xiaowuzicode/xiaodao-ime/actions) 最新构建下载 `XiaodaoIME-windows-x64` 产物（或本地 `scripts\build_app_windows.bat` 自行打包），运行 `XiaodaoIME.exe`：托盘出现圆点图标即就绪，**单击右 Ctrl** 说话、再击出字。无需任何系统授权；未签名 exe 被 SmartScreen 提示属正常现象。首次启动自动下载模型（241MB）。
+
+### 授权（macOS 首次启动）
+
+到**系统设置 → 隐私与安全性**授予三项权限（授给启动它的宿主：App 方式就是「小岛AI输入法」，终端方式就是你的终端）：
 
 | 权限 | 用途 |
 |---|---|
