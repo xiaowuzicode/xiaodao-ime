@@ -197,6 +197,7 @@ class XiaodaoIME(rumps.App):
         try:
             self._hotkey = HotkeyController(
                 self._recorder, self._transcriber, on_status=self._set_status,
+                on_first_event=self._on_first_key_event,
                 polisher=self._polisher, settings=self._settings,
                 history=self._history, hud=self._hud_panel,
                 notifier=lambda t, m: rumps.notification("小岛AI输入法", t, m),
@@ -407,6 +408,21 @@ class XiaodaoIME(rumps.App):
         """状态行点击：逐个打开缺失权限对应的系统设置面板（停在最后一个）。"""
         for section in (getattr(self, "_perm_missing", None) or ["input_monitoring"]):
             open_privacy_settings(section)
+
+    def _on_first_key_event(self) -> None:
+        """功能性纠偏：实际收到键盘事件 = 输入监听真通了。
+        若启动自检误报缺权限，在此清除状态行（自检 API 存在已授权仍返回 false 的情况）。"""
+        missing = getattr(self, "_perm_missing", None)
+        if not missing:
+            return
+        self._perm_missing = [k for k in missing if k != "input_monitoring"]
+        if self._perm_missing:
+            self._status_item.title = "状态：缺权限（辅助功能）→ 点我去授权"
+        else:
+            self._perm_missing = None
+            self._status_item.set_callback(None)
+            self._status_item.title = "状态：待机"
+            log.info("权限状态已纠偏：实际事件已到，清除「缺权限」提示")
 
     def _apply_icon(self, state: str) -> None:
         """切换菜单栏图标。录音态是唯一彩色图标（固定红），须关掉模板渲染；

@@ -112,10 +112,39 @@ def frontmost_app():
 #     静默失效（设置里开关看着还开着）——必须先移除旧条目再重新勾选。
 # Preflight 只查不弹窗；Request 触发系统弹窗并把当前宿主加进权限列表。
 
+def _check_listen_access() -> bool:
+    """输入监听：IOHIDCheckAccess 比 CGPreflightListenEventAccess 可靠——
+    后者在系统设置里明明已勾选时仍可能返回 false（实测误报）。"""
+    try:
+        import ctypes
+        iokit = ctypes.cdll.LoadLibrary(
+            "/System/Library/Frameworks/IOKit.framework/IOKit")
+        iokit.IOHIDCheckAccess.restype = ctypes.c_uint32
+        iokit.IOHIDCheckAccess.argtypes = [ctypes.c_uint32]
+        # 1 = kIOHIDRequestTypeListenEvent；返回 0 = granted
+        return iokit.IOHIDCheckAccess(1) == 0
+    except Exception as e:
+        log.debug("IOHIDCheckAccess 不可用，回退 CGPreflight：%s", e)
+        return bool(Quartz.CGPreflightListenEventAccess())
+
+
+def _check_ax_trusted() -> bool:
+    """辅助功能：AXIsProcessTrusted 是官方口径，CGPreflightPostEventAccess 有同款误报。"""
+    try:
+        import ctypes
+        appsvc = ctypes.cdll.LoadLibrary(
+            "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices")
+        appsvc.AXIsProcessTrusted.restype = ctypes.c_bool
+        return bool(appsvc.AXIsProcessTrusted())
+    except Exception as e:
+        log.debug("AXIsProcessTrusted 不可用，回退 CGPreflight：%s", e)
+        return bool(Quartz.CGPreflightPostEventAccess())
+
+
 def check_permissions(prompt: bool = False) -> dict:
     try:
-        listen = bool(Quartz.CGPreflightListenEventAccess())   # 输入监听（全局热键）
-        post = bool(Quartz.CGPreflightPostEventAccess())       # 辅助功能（模拟 Cmd+V）
+        listen = _check_listen_access()   # 输入监听（全局热键）
+        post = _check_ax_trusted()        # 辅助功能（模拟 Cmd+V）
     except Exception as e:
         log.warning("权限自检不可用：%s", e)
         return {"input_monitoring": True, "accessibility": True}  # 查不了就不拦
@@ -163,9 +192,9 @@ def open_privacy_settings(section: str) -> None:
 
 # ---- 悬浮窗 ----
 
-_WIDTH = 560
-_HEIGHT = 72
-_MARGIN_BOTTOM = 96
+_WIDTH = 420
+_HEIGHT = 52
+_MARGIN_BOTTOM = 84
 
 
 class HUDWindow:
@@ -204,14 +233,14 @@ class HUDWindow:
         content = panel.contentView()
         content.setWantsLayer_(True)
         layer = content.layer()
-        layer.setCornerRadius_(14.0)
+        layer.setCornerRadius_(13.0)
         layer.setBackgroundColor_(
             NSColor.colorWithCalibratedWhite_alpha_(0.08, 0.92).CGColor()
         )
 
         def _label(y: float, h: float, size: float, color):
             field = NSTextField.alloc().initWithFrame_(
-                NSMakeRect(18, y, _WIDTH - 36, h)
+                NSMakeRect(14, y, _WIDTH - 28, h)
             )
             field.setEditable_(False)
             field.setBordered_(False)
@@ -223,8 +252,8 @@ class HUDWindow:
             content.addSubview_(field)
             return field
 
-        main = _label(32, 24, 15, NSColor.whiteColor())
-        hint = _label(10, 16, 11,
+        main = _label(24, 20, 13, NSColor.whiteColor())
+        hint = _label(7, 14, 10,
                       NSColor.colorWithCalibratedWhite_alpha_(1.0, 0.5))
 
         self._panel = panel

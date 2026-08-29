@@ -80,6 +80,7 @@ class HotkeyController:
 
     def __init__(self, recorder: Recorder, transcriber: Transcriber,
                  on_status: Optional[Callable[[str], None]] = None,
+                 on_first_event: Optional[Callable[[], None]] = None,
                  min_hold: float = MIN_HOLD_SECONDS,
                  polisher=None, settings=None, history=None,
                  hud=None, notifier: Optional[Callable[[str, str], None]] = None,
@@ -89,6 +90,7 @@ class HotkeyController:
         self._recorder = recorder
         self._transcriber = transcriber
         self._on_status = on_status or (lambda s: None)
+        self._on_first_event = on_first_event
         self._min_hold = min_hold
         self._polisher = polisher
         self._settings = settings
@@ -211,7 +213,7 @@ class HotkeyController:
             return
         rewrite = self._channel == "rewrite"
         self._hud.begin(
-            prefix="🪄" if rewrite else "🎙️",
+            prefix="改写" if rewrite else "",
             placeholder="说出改写指令…" if rewrite else "聆听中…",
             hint=self._hint_text(),
         )
@@ -274,6 +276,11 @@ class HotkeyController:
             if not self._saw_event:
                 self._saw_event = True
                 log.info("✅ 已收到键盘事件，输入监听权限正常（首个按键：%s）", key)
+                if self._on_first_event:
+                    try:
+                        self._on_first_event()
+                    except Exception as e:
+                        log.debug("on_first_event 回调异常：%s", e)
             if self._paused:
                 return
             channel = self._match_channel(key)
@@ -427,7 +434,7 @@ class HotkeyController:
         play("stop", self._settings)
         self._status("transcribing")
         if self._hud is not None:
-            self._hud.set_status("✍️ 转写中…")
+            self._hud.set_status("转写中…")
         target = (self._rewrite_and_replace if self._channel == "rewrite"
                   else self._transcribe_and_paste)
         threading.Thread(target=target, args=(pcm,), daemon=True).start()
@@ -456,7 +463,7 @@ class HotkeyController:
                     self._status("polishing")
                     if self._hud is not None:
                         # 等待不做黑盒：润色期间先把已转写全文亮出来
-                        self._hud.set_status("🪄 润色中…", text)
+                        self._hud.set_status("润色中…", text)
                     polished = self._polisher.polish(text, style=style)
                     if polished:
                         text = polished  # 润色失败时 polish 返回 None，直接用原始转写
@@ -487,7 +494,7 @@ class HotkeyController:
                              "先选中要改写的文本，再按改写热键说指令")
                 return
             if self._hud is not None:
-                self._hud.set_status("✍️ 识别指令中…", selection)
+                self._hud.set_status("识别指令中…", selection)
             instruction, _ = self._transcriber.transcribe(pcm)
             instruction = (instruction or "").strip()
             if not instruction:
@@ -496,7 +503,7 @@ class HotkeyController:
                 return
             log.info("改写指令：%r，选区 %d 字符", instruction, len(selection))
             if self._hud is not None:
-                self._hud.set_status(f"🪄 改写中：{instruction[:24]}", selection)
+                self._hud.set_status(f"改写中：{instruction[:24]}", selection)
             self._status("polishing")
             result = self._polisher.rewrite(selection, instruction)
             if not result:
