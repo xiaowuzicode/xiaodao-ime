@@ -6,6 +6,7 @@
   提示音   play_sound(event)            # event: start / stop / cancel
   前台应用 frontmost_app() -> (应用名, 应用标识)
   权限     check_permissions(prompt) -> {"input_monitoring": bool, "accessibility": bool}
+  权限跳转 open_privacy_settings(section)  # input_monitoring / accessibility / microphone
   悬浮窗   HUDWindow 类：show_lines(main, hint) / hide()，线程安全
 
 核心层（hotkey/recorder/transcriber/polisher/…）只依赖本包，不直接 import

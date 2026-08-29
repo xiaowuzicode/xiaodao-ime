@@ -37,7 +37,7 @@ from xiaodao_ime.hotkey import HOTKEY_CHOICES, RECORD_MODES, HotkeyController  #
 from xiaodao_ime.hud import PreviewHUD  # noqa: E402
 from xiaodao_ime.logger import get_logger  # noqa: E402
 from xiaodao_ime.paster import copy_to_clipboard  # noqa: E402
-from xiaodao_ime.permissions import check_permissions  # noqa: E402
+from xiaodao_ime.permissions import check_permissions, open_privacy_settings  # noqa: E402
 from xiaodao_ime.polisher import Polisher, get_styles  # noqa: E402
 from xiaodao_ime.recorder import Recorder  # noqa: E402
 from xiaodao_ime.settings import Settings  # noqa: E402
@@ -141,14 +141,18 @@ class XiaodaoIME(rumps.App):
         perms = check_permissions(prompt=True)
         if not perms["input_monitoring"] or not perms["accessibility"]:
             missing = []
+            self._perm_missing = []
             if not perms["input_monitoring"]:
                 missing.append("输入监听")
+                self._perm_missing.append("input_monitoring")
             if not perms["accessibility"]:
                 missing.append("辅助功能")
-            self._status_item.title = f"状态：缺权限（{'、'.join(missing)}）"
+                self._perm_missing.append("accessibility")
+            self._status_item.title = f"状态：缺权限（{'、'.join(missing)}）→ 点我去授权"
+            self._status_item.set_callback(self._open_perm_settings)
             rumps.notification(
                 "小岛AI输入法", f"缺少权限：{'、'.join(missing)}",
-                "请到 系统设置→隐私与安全性 勾选本程序；"
+                "点菜单栏「状态」一行可直达系统设置对应页面；"
                 "若列表里已有旧条目仍无效，先移除再重新添加，然后重启本程序。",
             )
 
@@ -398,6 +402,11 @@ class XiaodaoIME(rumps.App):
             log.warning("打开配置文件失败：%s", e)
 
     # ---- 状态与通用菜单 ----
+
+    def _open_perm_settings(self, _) -> None:
+        """状态行点击：逐个打开缺失权限对应的系统设置面板（停在最后一个）。"""
+        for section in (getattr(self, "_perm_missing", None) or ["input_monitoring"]):
+            open_privacy_settings(section)
 
     def _apply_icon(self, state: str) -> None:
         """切换菜单栏图标。录音态是唯一彩色图标（固定红），须关掉模板渲染；

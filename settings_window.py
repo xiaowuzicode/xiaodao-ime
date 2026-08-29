@@ -9,6 +9,7 @@ from AppKit import (
     NSAlert,
     NSApp,
     NSBackingStoreBuffered,
+    NSBox,
     NSButton,
     NSFont,
     NSMakeRect,
@@ -27,14 +28,16 @@ from xiaodao_ime.polisher import get_styles
 
 log = get_logger(__name__)
 
-_W, _H = 480, 532
-_LABEL_X, _LABEL_W = 20, 124
-_CTRL_X, _CTRL_W = 152, 300
-_NSButtonTypeSwitch = 3  # NSButtonTypeSwitch（数值稳定，免 pyobjc 版本差异）
+_W, _H = 520, 566
+_LABEL_X, _LABEL_W = 20, 128
+_CTRL_X, _CTRL_W = 160, 336
+_NSButtonTypeSwitch = 3   # NSButtonTypeSwitch（数值稳定，免 pyobjc 版本差异）
+_NSBoxSeparator = 2       # NSBoxSeparator
+_NSTextAlignmentRight = 1  # macOS 上 NSTextAlignmentRight == NSRightTextAlignment == 1
 
 _PROVIDERS = ["openai", "anthropic"]
 _PROVIDER_LABELS = [
-    "OpenAI 兼容（DeepSeek / Kimi / GLM / ollama…）",
+    "OpenAI 兼容（DeepSeek / Kimi / GLM…）",
     "Anthropic",
 ]
 
@@ -59,16 +62,29 @@ class SettingsWindowController(NSObject):
     # ---- 构建 ----
 
     @objc.python_method
-    def _label(self, text, top, bold=False, x=_LABEL_X, w=_LABEL_W, gray=False):
+    def _label(self, text, top, bold=False, x=_LABEL_X, w=_LABEL_W,
+               gray=False, right=False):
         lbl = NSTextField.labelWithString_(text)
         lbl.setFrame_(_rect(top, 20, x=x, w=w))
-        size = 13
-        lbl.setFont_(NSFont.boldSystemFontOfSize_(size) if bold
-                     else NSFont.systemFontOfSize_(size))
+        lbl.setFont_(NSFont.boldSystemFontOfSize_(13) if bold
+                     else NSFont.systemFontOfSize_(13))
+        if right:
+            lbl.setAlignment_(_NSTextAlignmentRight)
         if gray:
             lbl.setTextColor_(lbl.textColor().colorWithAlphaComponent_(0.55))
         self._content.addSubview_(lbl)
         return lbl
+
+    @objc.python_method
+    def _row_label(self, text, top):
+        """行标签：右对齐贴近控件（macOS 设置页惯例）。"""
+        return self._label(text, top, right=True)
+
+    @objc.python_method
+    def _separator(self, top):
+        box = NSBox.alloc().initWithFrame_(_rect(top, 1, x=20, w=_W - 40))
+        box.setBoxType_(_NSBoxSeparator)
+        self._content.addSubview_(box)
 
     @objc.python_method
     def _popup(self, top, titles):
@@ -119,43 +135,51 @@ class SettingsWindowController(NSObject):
         self._window = win
         self._content = win.contentView()
 
-        top = 18
+        top = 20
         self._label("热键与录音", top, bold=True, w=200)
-        top += 30
-        self._label("听写热键", top)
+        top += 32
+        self._row_label("听写热键", top)
         self._pop_hotkey = self._popup(top, [v[0] for v in HOTKEY_CHOICES.values()])
         top += 34
-        self._label("改写热键", top)
+        self._row_label("改写热键", top)
         self._pop_rewrite = self._popup(top, [v[0] for v in HOTKEY_CHOICES.values()])
         top += 34
-        self._label("录音方式", top)
+        self._row_label("录音方式", top)
         self._pop_mode = self._popup(top, list(RECORD_MODES.values()))
-        top += 34
+        top += 36
         self._chk_preview = self._checkbox(top, "实时预览悬浮窗（计时 / 声浪 / 边说边出字）")
         top += 28
         self._chk_sounds = self._checkbox(top, "录音开始 / 结束提示音")
 
-        top += 40
-        self._label("AI 润色（自备大模型 Key，可选）", top, bold=True, w=320)
-        top += 30
-        self._chk_polish = self._checkbox(top, "启用：去口水词、修同音错字、规范标点")
         top += 32
-        self._label("服务商", top)
+        self._separator(top)
+        top += 16
+        self._label("AI 润色（自备大模型 Key，可选）", top, bold=True, w=320)
+        top += 32
+        self._chk_polish = self._checkbox(top, "启用：去口水词、修同音错字、规范标点")
+        self._chk_polish.setTarget_(self)
+        self._chk_polish.setAction_("polishToggled:")
+        top += 32
+        self._row_label("服务商", top)
         self._pop_provider = self._popup(top, _PROVIDER_LABELS)
         top += 34
-        self._label("Base URL", top)
+        self._row_label("Base URL", top)
         self._fld_base = self._field(top, "https://api.deepseek.com")
         top += 32
-        self._label("API Key", top)
-        self._fld_key = self._field(top, "sk-…（只存本机 settings.json）", secure=True)
+        self._row_label("API Key", top)
+        self._fld_key = self._field(top, "sk-…（只存本机，不上传）", secure=True)
         top += 32
-        self._label("模型", top)
+        self._row_label("模型", top)
         self._fld_model = self._field(top, "deepseek-chat")
         top += 34
-        self._label("润色风格", top)
+        self._row_label("润色风格", top)
         self._pop_style = self._popup(top, list(get_styles(self._settings)))
+        self._polish_ctrls = [self._pop_provider, self._fld_base, self._fld_key,
+                              self._fld_model, self._pop_style]
 
-        top += 38
+        top += 36
+        self._separator(top)
+        top += 12
         self._label("热词、替换表、场景感知等高级项 → 编辑完整配置", top,
                     w=_W - 40, gray=True)
 
@@ -194,6 +218,14 @@ class SettingsWindowController(NSObject):
         current = polish.get("style", "润色")
         if current in styles:
             self._pop_style.selectItemAtIndex_(styles.index(current))
+        self._update_polish_enabled()
+
+    @objc.python_method
+    def _update_polish_enabled(self):
+        """未启用润色时置灰相关字段，启用后可编辑。"""
+        enabled = bool(self._chk_polish.state())
+        for ctrl in self._polish_ctrls:
+            ctrl.setEnabled_(enabled)
 
     @objc.python_method
     def _alert(self, title, message):
@@ -203,6 +235,9 @@ class SettingsWindowController(NSObject):
         alert.runModal()
 
     # ---- 动作（selector 命名须带冒号后缀对应的下划线）----
+
+    def polishToggled_(self, _sender):
+        self._update_polish_enabled()
 
     def saveClicked_(self, _sender):
         names = list(HOTKEY_CHOICES.keys())

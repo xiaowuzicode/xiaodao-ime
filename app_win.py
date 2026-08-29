@@ -31,7 +31,7 @@ from xiaodao_ime.hotkey import HOTKEY_CHOICES, RECORD_MODES, HotkeyController  #
 from xiaodao_ime.hud import PreviewHUD  # noqa: E402
 from xiaodao_ime.logger import get_logger  # noqa: E402
 from xiaodao_ime.paster import copy_to_clipboard  # noqa: E402
-from xiaodao_ime.permissions import check_permissions  # noqa: E402
+from xiaodao_ime.permissions import check_permissions, open_privacy_settings  # noqa: E402
 from xiaodao_ime.platform import DEFAULT_HOTKEY, DEFAULT_REWRITE_HOTKEY  # noqa: E402
 from xiaodao_ime.polisher import Polisher, get_styles  # noqa: E402
 from xiaodao_ime.recorder import Recorder  # noqa: E402
@@ -168,6 +168,7 @@ class WinApp:
             Item("润色风格", Menu(lambda: style_items())),
             Item("打开配置文件", self._open_settings),
             Item("重新加载配置", self._reload_settings),
+            Item("麦克风隐私设置（录不到声音点这里）", self._open_mic_privacy),
         )
         return Menu(
             Item(status_text, None, enabled=False),
@@ -225,6 +226,9 @@ class WinApp:
             os.startfile(self._settings.ensure_file())  # noqa: S606
         except Exception as e:
             log.warning("打开配置文件失败：%s", e)
+
+    def _open_mic_privacy(self, icon, item) -> None:
+        open_privacy_settings("microphone")
 
     def _open_log(self, icon, item) -> None:
         try:

@@ -142,6 +142,25 @@ def check_permissions(prompt: bool = False) -> dict:
     return {"input_monitoring": listen, "accessibility": post}
 
 
+# 系统设置 → 隐私与安全性 的深链锚点（macOS 13+ 系统设置仍兼容此 scheme）
+_PRIVACY_ANCHORS = {
+    "input_monitoring": "Privacy_ListenEvent",
+    "accessibility": "Privacy_Accessibility",
+    "microphone": "Privacy_Microphone",
+}
+
+
+def open_privacy_settings(section: str) -> None:
+    """跳转系统设置对应隐私面板，让用户手动勾选授权。"""
+    anchor = _PRIVACY_ANCHORS.get(section)
+    if not anchor:
+        return
+    import subprocess
+    subprocess.Popen(
+        ["open", f"x-apple.systempreferences:com.apple.preference.security?{anchor}"])
+    log.info("已打开系统设置隐私面板：%s", section)
+
+
 # ---- 悬浮窗 ----
 
 _WIDTH = 560
