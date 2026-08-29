@@ -213,7 +213,7 @@ class HotkeyController:
             return
         rewrite = self._channel == "rewrite"
         self._hud.begin(
-            prefix="🪄" if rewrite else "🎙️",
+            prefix="改写" if rewrite else "",
             placeholder="说出改写指令…" if rewrite else "聆听中…",
             hint=self._hint_text(),
         )
@@ -434,7 +434,7 @@ class HotkeyController:
         play("stop", self._settings)
         self._status("transcribing")
         if self._hud is not None:
-            self._hud.set_status("✍️ 转写中…")
+            self._hud.set_status("转写中…")
         target = (self._rewrite_and_replace if self._channel == "rewrite"
                   else self._transcribe_and_paste)
         threading.Thread(target=target, args=(pcm,), daemon=True).start()
@@ -463,7 +463,7 @@ class HotkeyController:
                     self._status("polishing")
                     if self._hud is not None:
                         # 等待不做黑盒：润色期间先把已转写全文亮出来
-                        self._hud.set_status("🪄 润色中…", text)
+                        self._hud.set_status("润色中…", text)
                     polished = self._polisher.polish(text, style=style)
                     if polished:
                         text = polished  # 润色失败时 polish 返回 None，直接用原始转写
@@ -494,7 +494,7 @@ class HotkeyController:
                              "先选中要改写的文本，再按改写热键说指令")
                 return
             if self._hud is not None:
-                self._hud.set_status("✍️ 识别指令中…", selection)
+                self._hud.set_status("识别指令中…", selection)
             instruction, _ = self._transcriber.transcribe(pcm)
             instruction = (instruction or "").strip()
             if not instruction:
@@ -503,7 +503,7 @@ class HotkeyController:
                 return
             log.info("改写指令：%r，选区 %d 字符", instruction, len(selection))
             if self._hud is not None:
-                self._hud.set_status(f"🪄 改写中：{instruction[:24]}", selection)
+                self._hud.set_status(f"改写中：{instruction[:24]}", selection)
             self._status("polishing")
             result = self._polisher.rewrite(selection, instruction)
             if not result:

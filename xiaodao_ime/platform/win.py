@@ -177,9 +177,9 @@ def check_permissions(prompt: bool = False) -> dict:
 
 # ---- 悬浮窗 ----
 
-_WIDTH = 560
-_HEIGHT = 72
-_MARGIN_BOTTOM = 96
+_WIDTH = 420
+_HEIGHT = 52
+_MARGIN_BOTTOM = 84
 
 
 class HUDWindow:
@@ -218,12 +218,12 @@ class HUDWindow:
         x = (sw - _WIDTH) // 2
         y = sh - _HEIGHT - _MARGIN_BOTTOM
         root.geometry(f"{_WIDTH}x{_HEIGHT}+{x}+{y}")
-        main = tk.Label(root, fg="white", bg=bg, font=("Microsoft YaHei UI", 12),
+        main = tk.Label(root, fg="white", bg=bg, font=("Microsoft YaHei UI", 11),
                         anchor="w")
-        main.place(x=18, y=10, width=_WIDTH - 36, height=26)
+        main.place(x=14, y=6, width=_WIDTH - 28, height=24)
         hint = tk.Label(root, fg="#8f8f8f", bg=bg, font=("Microsoft YaHei UI", 9),
                         anchor="w")
-        hint.place(x=18, y=42, width=_WIDTH - 36, height=18)
+        hint.place(x=14, y=32, width=_WIDTH - 28, height=16)
 
         visible = {"v": False}
 

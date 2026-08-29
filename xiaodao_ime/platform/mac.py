@@ -192,9 +192,9 @@ def open_privacy_settings(section: str) -> None:
 
 # ---- 悬浮窗 ----
 
-_WIDTH = 560
-_HEIGHT = 72
-_MARGIN_BOTTOM = 96
+_WIDTH = 420
+_HEIGHT = 52
+_MARGIN_BOTTOM = 84
 
 
 class HUDWindow:
@@ -233,14 +233,14 @@ class HUDWindow:
         content = panel.contentView()
         content.setWantsLayer_(True)
         layer = content.layer()
-        layer.setCornerRadius_(14.0)
+        layer.setCornerRadius_(13.0)
         layer.setBackgroundColor_(
             NSColor.colorWithCalibratedWhite_alpha_(0.08, 0.92).CGColor()
         )
 
         def _label(y: float, h: float, size: float, color):
             field = NSTextField.alloc().initWithFrame_(
-                NSMakeRect(18, y, _WIDTH - 36, h)
+                NSMakeRect(14, y, _WIDTH - 28, h)
             )
             field.setEditable_(False)
             field.setBordered_(False)
@@ -252,8 +252,8 @@ class HUDWindow:
             content.addSubview_(field)
             return field
 
-        main = _label(32, 24, 15, NSColor.whiteColor())
-        hint = _label(10, 16, 11,
+        main = _label(24, 20, 13, NSColor.whiteColor())
+        hint = _label(7, 14, 10,
                       NSColor.colorWithCalibratedWhite_alpha_(1.0, 0.5))
 
         self._panel = panel
