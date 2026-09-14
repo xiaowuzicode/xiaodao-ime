@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>小岛AI输入法</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body class="hud-body">
+    <div class="hud" id="hud">
+      <div class="hud-main">
+        <span class="hud-prefix" id="hud-prefix" hidden>改写</span>
+        <span class="hud-timer" id="hud-timer">0s</span>
+        <canvas class="hud-wave" id="hud-wave" width="120" height="36"></canvas>
+        <span class="hud-text" id="hud-text"></span>
+      </div>
+      <div class="hud-hint" id="hud-hint"></div>
+    </div>
+    <script type="module" src="/src/hud.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,4 @@
+# pnpm 11 起，依赖安装脚本白名单放这里（package.json 的 pnpm 字段已不再读取）。
+# esbuild 是 vite 的原生依赖，必须允许其安装脚本运行，否则 vite 起不来。
+allowBuilds:
+  esbuild: true
