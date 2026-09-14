@@ -6281,6 +6281,7 @@ dependencies = [
 name = "xiaodao-ime"
 version = "1.0.0"
 dependencies = [
+ "anyhow",
  "serde",
  "serde_json",
  "tauri",
@@ -6289,7 +6290,6 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
  "tracing",
- "tracing-subscriber",
  "xiaodao-core",
 ]
 

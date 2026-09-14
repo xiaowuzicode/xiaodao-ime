@@ -4,7 +4,7 @@ use tauri::AppHandle;
 use tauri_plugin_notification::NotificationExt;
 use xiaodao_core::types::{Events, Status};
 
-use crate::tray;
+use crate::{bootstrap, tray};
 
 /// 系统通知标题（与 Python 版一致）。
 const APP_NAME: &str = "小岛AI输入法";
@@ -43,8 +43,8 @@ impl Events for TauriEvents {
     }
 
     fn first_key_event(&self) {
-        // 功能性纠偏：真收到键盘事件 = 输入监听权限已通（对齐 Python `_on_first_key_event`）
-        tracing::info!("已收到首个键盘事件，输入监听权限正常");
-        tray::set_status_text(&self.app, "状态：待机");
+        // 功能性纠偏：真收到键盘事件 = 输入监听权限已通（对齐 Python `_on_first_key_event`）。
+        // 只在启动自检报过缺权限时才动状态行，避免覆盖「加载模型中…」之类的正常提示。
+        bootstrap::on_first_key_event(&self.app);
     }
 }

@@ -1,53 +1,20 @@
-//! 前端可调用的命令，以及路径/外部打开等小工具。
+//! 前端可调用的命令，以及打开文件等小工具。
 //!
-//! 本阶段 settings.json 用 `serde_json::Value` 直读直写（与 Python 版同 schema、同位置），
-//! 接上核心后换成 `xiaodao_core::settings::SettingsStore`。
+//! settings.json 的唯一读写口是核心层的 `SettingsStore`（与 Python 版同 schema、同位置）：
+//! 设置页保存后立刻把新热键/录音方式推给状态机，无需重启（对应 `settings_window.py` 的 on_save）。
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde::Serialize;
-use serde_json::{json, Map, Value};
+use serde_json::Value;
 use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
 use xiaodao_core::keys::HotkeyId;
+use xiaodao_core::settings::Settings;
 use xiaodao_core::types::Channel;
 
+use crate::bootstrap;
 use crate::hud::TauriHud;
-
-/// 数据目录名（与 Python 版一致，老用户配置可直接继承）。
-const APP_DIR_NAME: &str = "xiaodao-ime";
-
-/// 数据目录：`XIAODAO_HOME` 优先；macOS `~/Library/Application Support/xiaodao-ime`，
-/// Windows `%APPDATA%\xiaodao-ime`。
-pub fn data_dir() -> PathBuf {
-    if let Ok(home) = std::env::var("XIAODAO_HOME") {
-        if !home.trim().is_empty() {
-            return PathBuf::from(home);
-        }
-    }
-    #[cfg(target_os = "macos")]
-    {
-        let home = std::env::var("HOME").unwrap_or_default();
-        PathBuf::from(home)
-            .join("Library/Application Support")
-            .join(APP_DIR_NAME)
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        let base = std::env::var("APPDATA")
-            .or_else(|_| std::env::var("HOME"))
-            .unwrap_or_default();
-        PathBuf::from(base).join(APP_DIR_NAME)
-    }
-}
-
-pub fn settings_path() -> PathBuf {
-    data_dir().join("settings.json")
-}
-
-pub fn log_file() -> PathBuf {
-    data_dir().join("logs").join("xiaodao-ime.log")
-}
 
 /// 用系统默认程序打开文件/目录（打开日志用）。
 pub fn open_path(app: &AppHandle, path: &Path) {
@@ -65,77 +32,46 @@ pub fn open_path(app: &AppHandle, path: &Path) {
     }
 }
 
-/// settings.json 默认值（对齐 Python `xiaodao_ime/settings.py` 的 DEFAULTS）。
-fn defaults() -> Value {
-    json!({
-        "hotkey": HotkeyId::default_dictate().as_str(),
-        "rewrite_hotkey": HotkeyId::default_rewrite().as_str(),
-        "record_mode": "toggle",
-        "live_preview": true,
-        "polish": {
-            "enabled": false,
-            "provider": "openai",
-            "model": "deepseek-chat",
-            "api_key": "",
-            "base_url": "https://api.deepseek.com",
-            "timeout": 30,
-            "style": "润色",
-            "styles": {},
-        },
-        "app_styles": {},
-        "sounds": true,
-        "history": {"enabled": true, "max_items": 50},
-        "hotwords": [],
-        "replacements": {},
+/// 用文本编辑器打开（macOS `open -t`：.json 的默认程序常被浏览器抢注）。
+pub fn open_text_file(app: &AppHandle, path: &Path) {
+    #[cfg(target_os = "macos")]
+    {
+        match std::process::Command::new("open")
+            .arg("-t")
+            .arg(path)
+            .spawn()
+        {
+            Ok(_) => return,
+            Err(e) => tracing::warn!("open -t 打开 {} 失败：{e}", path.display()),
+        }
+    }
+    open_path(app, path);
+}
+
+/// 读 settings.json（应用未初始化时回退默认值，不让设置页打不开）。
+#[tauri::command]
+pub fn get_settings(app: AppHandle) -> Value {
+    let settings = bootstrap::state(&app)
+        .map(|state| state.store.get())
+        .unwrap_or_default();
+    serde_json::to_value(settings).unwrap_or_else(|e| {
+        tracing::error!("设置序列化失败：{e}");
+        Value::Object(serde_json::Map::new())
     })
 }
 
-/// 字段级深合并：用户只写想改的键，其余取默认（与 Python `_merge` 同语义）。
-fn merge(base: &Value, override_with: &Value) -> Value {
-    let (Some(base_map), Some(over_map)) = (base.as_object(), override_with.as_object()) else {
-        return override_with.clone();
-    };
-    let mut out: Map<String, Value> = base_map.clone();
-    for (key, value) in over_map {
-        let merged = match base_map.get(key) {
-            Some(existing) if existing.is_object() && value.is_object() => merge(existing, value),
-            _ => value.clone(),
-        };
-        out.insert(key.clone(), merged);
-    }
-    Value::Object(out)
-}
-
-/// 读 settings.json（缺失或解析失败一律回退默认值，不让设置页打不开）。
+/// 整体写回 settings.json 并立刻生效（前端已保留未知键）。
 #[tauri::command]
-pub fn get_settings() -> Value {
-    let path = settings_path();
-    match std::fs::read_to_string(&path) {
-        Ok(raw) => match serde_json::from_str::<Value>(&raw) {
-            Ok(value) => merge(&defaults(), &value),
-            Err(e) => {
-                tracing::error!("settings.json 解析失败，使用默认设置：{e}");
-                defaults()
-            }
-        },
-        Err(_) => {
-            tracing::info!("settings.json 不存在，使用默认设置：{}", path.display());
-            defaults()
-        }
-    }
-}
-
-/// 整体写回 settings.json（前端已保留未知键）。
-#[tauri::command]
-pub fn save_settings(settings: Value) -> Result<(), String> {
-    let path = settings_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("创建数据目录失败：{e}"))?;
-    }
-    let mut text = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    text.push('\n');
-    std::fs::write(&path, text).map_err(|e| format!("写入设置失败：{e}"))?;
-    tracing::info!("设置已保存：{}", path.display());
+pub fn save_settings(app: AppHandle, settings: Value) -> Result<(), String> {
+    let state = bootstrap::state(&app).ok_or_else(|| "应用尚未初始化".to_string())?;
+    let parsed: Settings =
+        serde_json::from_value(settings).map_err(|e| format!("设置格式不正确：{e}"))?;
+    state.store.update(|current| *current = parsed);
+    state
+        .store
+        .save()
+        .map_err(|e| format!("写入设置失败：{e:#}"))?;
+    bootstrap::apply_settings(&app);
     Ok(())
 }
 
@@ -157,15 +93,10 @@ pub fn get_hotkey_choices() -> Vec<HotkeyChoice> {
         .collect()
 }
 
-/// 记录一次权限面板跳转请求（接核心后调 platform 的 open_privacy_settings）。
-pub fn log_privacy_section(section: &str) {
-    tracing::info!("请求打开系统隐私设置：{section}（应用壳阶段仅打日志）");
-}
-
-/// 跳转系统隐私设置面板。TODO(接核心)：调 `xiaodao_core::platform` 的实现。
+/// 跳转系统隐私设置面板。
 #[tauri::command]
-pub fn open_privacy_settings(section: String) {
-    log_privacy_section(&section);
+pub fn open_privacy_settings(app: AppHandle, section: String) {
+    bootstrap::open_privacy(&app, &section);
 }
 
 /// 调试用：播一串假的 HUD 事件（begin → level/partial → status → hide）。

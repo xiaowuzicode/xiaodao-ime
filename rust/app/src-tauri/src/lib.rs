@@ -4,6 +4,7 @@
 //! 两者通过 `xiaodao_core::types` 的 [`Hud`](xiaodao_core::types::Hud) 与
 //! [`Events`](xiaodao_core::types::Events) trait 对接（见 `hud.rs` / `events.rs`）。
 
+pub mod bootstrap;
 pub mod commands;
 pub mod events;
 pub mod hud;
@@ -15,8 +16,6 @@ use tauri::{Manager, PhysicalPosition, WebviewWindow, WindowEvent};
 const HUD_MARGIN_BOTTOM: f64 = 84.0;
 
 pub fn run() {
-    init_logging();
-
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
@@ -37,6 +36,9 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
+            // 顺序固定：先备好核心对象（日志 / 设置 / 历史），托盘建菜单时要读它们，
+            // 最后才启动后台线程（模型 + 键钩），保证状态行已经能显示进度。
+            bootstrap::init(app.handle()).map_err(|e| e.to_string())?;
             tray::build(app.handle())?;
 
             if let Some(hud) = app.get_webview_window(hud::HUD_WINDOW) {
@@ -56,6 +58,8 @@ pub fn run() {
                     }
                 });
             }
+
+            bootstrap::start(app.handle());
 
             // 开发期看 HUD 动效：XIAODAO_HUD_DEMO=1 cargo tauri dev
             if std::env::var("XIAODAO_HUD_DEMO").is_ok() {
@@ -80,16 +84,4 @@ fn place_hud(window: &WebviewWindow) -> tauri::Result<()> {
     let x = area.position.x + (area.size.width as i32 - size.width as i32) / 2;
     let y = area.position.y + area.size.height as i32 - size.height as i32 - margin;
     window.set_position(PhysicalPosition::new(x, y))
-}
-
-/// 日志：先用 stderr，接核心后换成 `xiaodao_core::logging`（写数据目录下的日志文件）。
-fn init_logging() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_env("XIAODAO_LOG")
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
-        .with_file(true)
-        .with_line_number(true)
-        .init();
 }
