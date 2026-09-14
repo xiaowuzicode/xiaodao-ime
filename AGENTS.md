@@ -47,6 +47,13 @@ python test_polish.py       # 润色（无 key 时走 mock）
 python test_transcribe.py   # say 合成语音端到端（仅 Mac，需模型）
 ```
 
+## Rust 版（rust/，Tauri 2）
+
+- 工作区 `rust/`：`crates/core`（核心，无 UI 依赖）+ `app/`（Tauri 2，前端 vanilla TS）。方案见 `docs/rust-migration.md`。
+- 分层铁律同 Python 版：核心层只经 `platform::Platform` trait 触达系统 API；UI 只经 `types::{Hud, Events}` trait 接进来。
+- 校验：`cd rust && cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test -p xiaodao-core`；前端 `cd rust/app && pnpm build`。
+- 真机 E2E 合成按键必须走 HID tap（`CGEventPost(kCGHIDEventTap)`），osascript 的 key code 事件 rdev 看不到。
+
 ## 改代码的纪律
 
 - **分层铁律**：`xiaodao_ime/` 核心层平台无关，禁止直接 import AppKit/Quartz/ctypes/winsound 等平台库；所有系统 API 调用只能进 `xiaodao_ime/platform/mac.py` 或 `win.py`（接口约定见 `platform/__init__.py`）。改核心逻辑时两个平台都要能跑。

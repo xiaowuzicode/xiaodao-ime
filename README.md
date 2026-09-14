@@ -177,6 +177,17 @@ ollama     http://localhost:11434/v1          (全离线，无需 key)
 | 场景感知（按 App 切风格） | ✅ | ❌ | ✅（其王牌功能） |
 | 可审计 | ✅ 开源 | ❌ | ❌ |
 
+## Rust 版（v1.0，Tauri 2，进行中）
+
+Python 版之外，`rust/` 目录下是同一产品的 **Rust + Tauri 2 重写**（分支 `feat/rust-tauri`）：单二进制、免 venv/PyInstaller、启动快、内存低，转写引擎仍是 transcribe.cpp + SenseVoice（官方 Rust 绑定，本机稳态 37ms）。核心层 `rust/crates/core` 无 UI 依赖、81 个单测（热键状态机逐条移植自 Python 测试）；托盘 / 透明不抢焦点 HUD / 设置窗口由 Tauri 提供，双平台同一套代码。
+
+```bash
+# 本地构建（需 Rust 1.95+、cmake、pnpm；首次编译 ggml 约 3 分钟）
+cd rust/app && pnpm install && pnpm tauri build      # 产物：rust/target/release/bundle/
+```
+
+设置文件与数据目录与 Python 打包版**完全相同**（`~/Library/Application Support/xiaodao-ime`），老用户无缝切换。方案、行为对等清单与阶段见 [docs/rust-migration.md](docs/rust-migration.md)。
+
 ## 架构（跨平台分层）
 
 ```
