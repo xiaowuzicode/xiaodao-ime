@@ -27,4 +27,5 @@ pub mod transcriber;
 pub mod types;
 
 pub use keys::{HotkeyId, RecordMode};
+pub use settings::Settings;
 pub use types::*;

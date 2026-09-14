@@ -69,7 +69,12 @@ impl HotkeyId {
     /// 当前平台可选的热键列表（顺序即菜单顺序）。
     pub fn choices() -> &'static [HotkeyId] {
         if cfg!(target_os = "macos") {
-            &[HotkeyId::AltL, HotkeyId::AltR, HotkeyId::CmdR, HotkeyId::F19]
+            &[
+                HotkeyId::AltL,
+                HotkeyId::AltR,
+                HotkeyId::CmdR,
+                HotkeyId::F19,
+            ]
         } else {
             &[HotkeyId::CtrlR, HotkeyId::F8, HotkeyId::F9, HotkeyId::AltR]
         }

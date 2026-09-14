@@ -69,9 +69,15 @@ mod tests {
     fn pick_style_ported() {
         let m = mapping();
         // 应用标识优先
-        assert_eq!(pick_style("微信", "com.tencent.xinWeChat", &m).as_deref(), Some("轻度纠错"));
+        assert_eq!(
+            pick_style("微信", "com.tencent.xinWeChat", &m).as_deref(),
+            Some("轻度纠错")
+        );
         // 应用名忽略大小写
-        assert_eq!(pick_style("mail", "com.apple.mail", &m).as_deref(), Some("书面化"));
+        assert_eq!(
+            pick_style("mail", "com.apple.mail", &m).as_deref(),
+            Some("书面化")
+        );
         assert_eq!(pick_style("Terminal", "", &m).as_deref(), Some("关闭"));
         // 无匹配走默认
         assert_eq!(pick_style("Safari", "com.apple.Safari", &m), None);

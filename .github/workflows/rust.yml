@@ -1,0 +1,84 @@
+name: Rust
+
+on:
+  push:
+    branches: [main, feat/rust-tauri]
+    paths: ["rust/**", ".github/workflows/rust.yml"]
+  pull_request:
+    paths: ["rust/**", ".github/workflows/rust.yml"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # transcribe-cpp-sys 从源码 cmake 编译 ggml；CI 里关掉 lto 以缩短构建
+  CARGO_PROFILE_RELEASE_LTO: "off"
+
+jobs:
+  core:
+    name: core tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: fmt
+        run: cargo fmt --all --check
+      - name: clippy
+        run: cargo clippy -p xiaodao-core --all-targets -- -D warnings
+      - name: test
+        run: cargo test -p xiaodao-core
+
+  app:
+    name: tauri build (${{ matrix.os }})
+    needs: core
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            args: --target aarch64-apple-darwin --bundles app
+            artifact: XiaodaoIME-macos-arm64
+            path: rust/target/aarch64-apple-darwin/release/bundle/macos/
+          - os: windows-latest
+            args: --bundles nsis
+            artifact: XiaodaoIME-windows-x64
+            path: rust/target/release/bundle/nsis/
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.os == 'macos-14' && 'aarch64-apple-darwin' || '' }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: rust/app/pnpm-lock.yaml
+      - name: install frontend deps
+        working-directory: rust/app
+        run: pnpm install --frozen-lockfile
+      - name: tauri build
+        working-directory: rust/app
+        run: pnpm tauri build ${{ matrix.args }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.path }}
+          retention-days: 30

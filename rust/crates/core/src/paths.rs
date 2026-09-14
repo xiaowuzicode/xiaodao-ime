@@ -153,15 +153,15 @@ mod tests {
         assert_eq!(p.models_dir, PathBuf::from("/tmp/xd-base/models"));
         assert_eq!(p.logs_dir, PathBuf::from("/tmp/xd-base/logs"));
         assert_eq!(p.data_dir, PathBuf::from("/tmp/xd-base/data"));
-        assert_eq!(p.log_file, PathBuf::from("/tmp/xd-base/logs/xiaodao-ime.log"));
+        assert_eq!(
+            p.log_file,
+            PathBuf::from("/tmp/xd-base/logs/xiaodao-ime.log")
+        );
         assert_eq!(
             p.history_file,
             PathBuf::from("/tmp/xd-base/data/history.jsonl")
         );
-        assert_eq!(
-            p.settings_file,
-            PathBuf::from("/tmp/xd-base/settings.json")
-        );
+        assert_eq!(p.settings_file, PathBuf::from("/tmp/xd-base/settings.json"));
         assert!(p.model_path.starts_with("/tmp/xd-base/models"));
     }
 

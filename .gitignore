@@ -24,3 +24,9 @@ dist/
 data/
 build/
 *.spec
+
+# Rust / Tauri 构建产物与前端依赖
+rust/target/
+rust/app/node_modules/
+rust/app/dist/
+rust/app/src-tauri/gen/

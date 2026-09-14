@@ -40,6 +40,9 @@ objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSString"] }
 objc2-app-kit = { version = "0.3", features = ["NSWorkspace", "NSRunningApplication"] }
 core-foundation = "0.10"
+# 按键注入不走 enigo：enigo 的 macOS 事件源会合并用户此刻物理按着的修饰键
+# （Cmd+Option+V 事故），这里照 Python 版用 CGEvent 显式设 flags。详见 platform/common.rs
+core-graphics = "0.24"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61", features = [
