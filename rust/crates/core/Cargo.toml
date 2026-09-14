@@ -1,0 +1,56 @@
+[package]
+name = "xiaodao-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "小岛AI输入法核心：热键状态机 / 录音 / 本地转写 / LLM 润色 / 粘贴流程（无 UI 依赖）"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+parking_lot.workspace = true
+crossbeam-channel.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-appender = "0.2"
+directories = "6"
+chrono = { version = "0.4", features = ["clock"] }
+
+# 音频
+cpal = "0.16"
+rubato = "0.16"
+
+# 本地转写（ggml；macOS 默认 Metal，Windows 默认 CPU）
+transcribe-cpp = "0.2.3"
+
+# 网络：LLM 润色 + 模型下载（阻塞式，跑在 worker 线程）
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+
+# 全局键盘钩子（左右修饰键可区分）
+rdev = "0.5"
+
+# 剪贴板 / 按键注入
+arboard = "3"
+enigo = "0.3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSString"] }
+objc2-app-kit = { version = "0.3", features = ["NSWorkspace", "NSRunningApplication"] }
+core-foundation = "0.10"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_Threading",
+    "Win32_System_ProcessStatus",
+    "Win32_Media_Audio",
+    "Win32_UI_Shell",
+] }
+
+[dev-dependencies]
+tempfile = "3"
+mockito = "1"
