@@ -25,6 +25,7 @@ pub fn on_menu_event(app: &AppHandle, event: MenuEvent) {
         "pause" => toggle_pause(app),
         "preview" => toggle_preview(app),
         "polish" => toggle_polish(app),
+        "sounds" => toggle_sounds(app),
         _ => on_prefixed_event(app, &id),
     }
 }
@@ -80,6 +81,7 @@ fn set_hotkey(app: &AppHandle, value: &str, dictate: bool) {
             controller.set_rewrite_trigger(id);
         }
     }
+    // 切换日志由核心 `HotkeyController::set_trigger` 打印，这里不重复
     sync_menu_state(app);
 }
 
@@ -95,6 +97,7 @@ fn set_mode(app: &AppHandle, value: &str) {
     if let Some(controller) = state.controller() {
         controller.set_mode(mode);
     }
+    // 切换日志由核心 `HotkeyController::set_mode` 打印，这里不重复
     sync_menu_state(app);
 }
 
@@ -147,6 +150,19 @@ fn toggle_preview(app: &AppHandle) {
     });
     sync_menu_state(app);
     tracing::info!("实时预览已{}", if enabled { "开启" } else { "关闭" });
+}
+
+/// 录音开始/结束提示音总开关（对应 settings 的 `sounds`）。
+fn toggle_sounds(app: &AppHandle) {
+    let Some(state) = bootstrap::state(app) else {
+        return;
+    };
+    let enabled = state.store.update_and_save(|s| {
+        s.sounds = !s.sounds;
+        s.sounds
+    });
+    sync_menu_state(app);
+    tracing::info!("提示音已{}", if enabled { "开启" } else { "关闭" });
 }
 
 /// AI 润色总开关；配置不全时拒绝开启并引导去填配置（与 Python 版一致）。

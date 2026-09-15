@@ -252,12 +252,27 @@ fn launch(app: &AppHandle, state: &AppState, transcriber: SharedTranscriber) {
 
 // ---- 权限 ----
 
+/// 测试钩子：`XIAODAO_FAKE_NO_PERM=1` 伪造「缺权限」，用于真机验证状态行/通知分支
+/// 而不必真去撤销 TCC 授权（撤销会牵连整个终端宿主）。只影响自检结果的展示分支，
+/// 不改动任何真实权限状态；未设置该环境变量时完全不生效。
+fn fake_no_perm() -> bool {
+    matches!(
+        std::env::var("XIAODAO_FAKE_NO_PERM").as_deref(),
+        Ok("1") | Ok("true") | Ok("yes")
+    )
+}
+
 /// 启动自检：缺失时触发系统授权弹窗（把本应用自动加进权限列表）并通知。
 pub fn check_permissions(app: &AppHandle) {
     let Some(state) = state(app) else {
         return;
     };
-    let perms = state.platform.check_permissions(true);
+    let mut perms = state.platform.check_permissions(true);
+    if fake_no_perm() {
+        tracing::debug!("测试钩子 XIAODAO_FAKE_NO_PERM=1 生效：伪造缺少输入监听 + 辅助功能");
+        perms.input_monitoring = false;
+        perms.accessibility = false;
+    }
     if perms.all_granted() {
         return;
     }

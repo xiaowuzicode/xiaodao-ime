@@ -70,6 +70,11 @@ Tauri 主线程：托盘菜单 / 窗口；核心通过 Events/Hud trait 回调�
 | 权限自检（IOHIDCheckAccess / AXIsProcessTrusted）+ 首键探针 | ✅ | |
 | 打包：.app/.dmg（自签 XiaodaoIME Signing）、Windows NSIS | PyInstaller | tauri build |
 
+## 真机验证记录（2026-09-15，macOS）
+
+听写 / Esc 取消 / hold+双击锁定+短按丢弃 / 语音改写（mock LLM）/ 听写润色与 app_styles 关闭 / 托盘菜单各项（System Events 真点）/ 历史统计 1s 刷新 / 设置窗保存即生效 / 首启下载 241MB（进度到托盘+HUD）/ 缺权限路径（`XIAODAO_FAKE_NO_PERM=1` 测试钩子）全部通过。
+坑：手动 `cargo build` 必须 `--features custom-protocol`；合成修饰键毫秒级连击会丢事件，双击锁定自动化用 F19 验，人手仍需一次确认；hf-mirror 回退分支未触发（直连成功）。Windows 仅 CI 编译验证，无真机。
+
 ## 关键决策
 
 - **settings.json 同 schema、同位置**：老用户（PyInstaller 版）设置无缝继承。

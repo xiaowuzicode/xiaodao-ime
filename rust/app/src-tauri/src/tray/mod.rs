@@ -43,6 +43,7 @@ pub struct TrayState {
     pause_item: CheckMenuItem<Wry>,
     polish_item: CheckMenuItem<Wry>,
     preview_item: CheckMenuItem<Wry>,
+    sounds_item: CheckMenuItem<Wry>,
     history_menu: Submenu<Wry>,
     style_menu: Submenu<Wry>,
     /// 单选组条目：id 形如 `hotkey:alt_l`，同前缀者互斥（风格子菜单会整体重建）。
@@ -91,6 +92,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         pause_item: parts.pause_item,
         polish_item: parts.polish_item,
         preview_item: parts.preview_item,
+        sounds_item: parts.sounds_item,
         history_menu: parts.history_menu,
         style_menu: parts.style_menu,
         checks: Mutex::new(parts.checks),
@@ -224,6 +226,7 @@ pub fn sync_menu_state(app: &AppHandle) {
     select_exclusive(&tray, &format!("mode:{}", settings.record_mode.as_str()));
     let _ = tray.preview_item.set_checked(settings.live_preview);
     let _ = tray.polish_item.set_checked(settings.polish.enabled);
+    let _ = tray.sounds_item.set_checked(settings.sounds);
     let model = if settings.polish.model.trim().is_empty() {
         "?"
     } else {

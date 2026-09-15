@@ -10,6 +10,13 @@ description = "小岛AI输入法 Tauri 应用壳：托盘菜单 / 透明 HUD / �
 name = "xiaodao_ime_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# 生产构建开关：关掉时 tauri-build 会置 `cfg(dev)`，webview 去连 devUrl(localhost:1420)，
+# 打出来的包一开窗就是全白（HUD 与设置窗都空）。`pnpm tauri build` 由 CLI 自动带上
+# `tauri/custom-protocol`；直接用 cargo 构建可跑的二进制必须显式加：
+#   cargo build -p xiaodao-ime --release --features custom-protocol
+custom-protocol = ["tauri/custom-protocol"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
