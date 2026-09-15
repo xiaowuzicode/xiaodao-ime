@@ -31,7 +31,7 @@ from xiaodao_ime.context import STYLE_OFF, frontmost_app, pick_style
 from xiaodao_ime.platform import DEFAULT_HOTKEY, DEFAULT_REWRITE_HOTKEY, IS_MAC
 from xiaodao_ime.feedback import play
 from xiaodao_ime.logger import get_logger
-from xiaodao_ime.paster import grab_selection, paste_text, restore_clipboard
+from xiaodao_ime.paster import capture_selection, paste_text
 from xiaodao_ime.polisher import apply_replacements
 from xiaodao_ime.recorder import Recorder
 from xiaodao_ime.transcriber import Transcriber
@@ -479,15 +479,15 @@ class HotkeyController:
 
     def _rewrite_and_replace(self, pcm) -> None:  # noqa: ANN001
         """语音改写：抓选区 → 识别指令 → LLM 改写 → 原地替换。全程 fail-open。"""
-        original = None
-        original_owned = True
+        capture = None
         try:
             if self._polisher is None or not self._polisher.configured:
                 play("cancel", self._settings)
                 self._notify("语音改写不可用",
                              "请先在「设置 → 打开配置文件」配置 polish 的 base_url / api_key")
                 return
-            selection, original = grab_selection()
+            capture = capture_selection()
+            selection = capture.text
             if not selection or not selection.strip():
                 play("cancel", self._settings)
                 self._notify("未检测到选中文字",
@@ -510,15 +510,13 @@ class HotkeyController:
                 play("cancel", self._settings)
                 self._notify("改写失败", "模型没有返回结果，原文未改动")
                 return
-            paste_text(result, restore_to=original)
-            original_owned = False  # 剪贴板恢复交给 paste_text
-            if self._history is not None:
+            if capture.replace(result) and self._history is not None:
                 self._history.append(f"〔改写〕{instruction}", result)
         except Exception as e:
             log.error("改写流程异常：%s", e)
         finally:
-            if original_owned and original is not None:
-                restore_clipboard(original)
+            if capture is not None:
+                capture.restore()
             if self._hud is not None:
                 self._hud.hide()
             self._status("idle")

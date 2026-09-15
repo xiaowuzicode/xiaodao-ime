@@ -84,4 +84,4 @@ Tauri 主线程：托盘菜单 / 窗口；核心通过 Events/Hud trait 回调�
 1. core 各模块并行（A settings/paths/logging/polisher/context/history；B hotkey/listener/hud；C audio/transcriber/model_download；D platform/paster）
 2. Tauri app：scaffold + 前端页面（与 1 并行）→ 接线 core（1 完成后）
 3. 本机：`cargo test` 全绿 → `tauri build` 出 .app → 授权后真机 E2E；CI 双平台构建（macos-14 + windows-latest）
-4. README/AGENTS/install 脚本切换；Python 版移 `legacy/`
+4. README/AGENTS/install 脚本切换；Python 版移 `legacy/`（2026-09-15 已完成，install.sh 仍装 legacy 版，待 Rust Release 后切换）

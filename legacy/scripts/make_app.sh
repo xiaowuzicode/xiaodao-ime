@@ -21,8 +21,8 @@ fi
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
-if [[ -f "$ROOT/resources/icon.icns" ]]; then
-  cp "$ROOT/resources/icon.icns" "$APP_DIR/Contents/Resources/icon.icns"
+if [[ -f "$ROOT/../resources/icon.icns" ]]; then
+  cp "$ROOT/../resources/icon.icns" "$APP_DIR/Contents/Resources/icon.icns"
 fi
 
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST

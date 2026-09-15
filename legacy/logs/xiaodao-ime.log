@@ -1,0 +1,39 @@
+2026-09-15 08:29:03 [INFO] hotkey.py:278 - ✅ 已收到键盘事件，输入监听权限正常（首个按键：Key.alt）
+2026-09-15 08:29:03 [INFO] hotkey.py:357 - 开始录音（听写，单击模式，再按一次热键结束）
+2026-09-15 08:29:03 [INFO] hotkey.py:446 - 转写结果为空，不粘贴
+2026-09-15 08:29:03 [INFO] hotkey.py:278 - ✅ 已收到键盘事件，输入监听权限正常（首个按键：Key.alt）
+2026-09-15 08:29:03 [INFO] hotkey.py:278 - ✅ 已收到键盘事件，输入监听权限正常（首个按键：Key.alt）
+2026-09-15 08:29:03 [INFO] hotkey.py:357 - 开始录音（听写，单击模式，再按一次热键结束）
+2026-09-15 08:29:03 [INFO] hotkey.py:193 - 录音取消（录音中按下其他键）
+2026-09-15 08:29:03 [INFO] hotkey.py:357 - 开始录音（听写，单击模式，再按一次热键结束）
+2026-09-15 08:29:03 [INFO] hotkey.py:278 - ✅ 已收到键盘事件，输入监听权限正常（首个按键：Key.alt）
+2026-09-15 08:29:03 [INFO] hotkey.py:446 - 转写结果为空，不粘贴
+2026-09-15 08:29:03 [INFO] hotkey.py:410 - 按住时长 0.100s < 0.40s，丢弃本次录音
+2026-09-15 08:29:03 [INFO] hotkey.py:399 - 双击热键，进入锁定录音（再按一下结束）
+2026-09-15 08:29:03 [INFO] hotkey.py:446 - 转写结果为空，不粘贴
+2026-09-15 08:29:03 [INFO] hotkey.py:278 - ✅ 已收到键盘事件，输入监听权限正常（首个按键：Key.alt）
+2026-09-15 08:29:03 [INFO] hotkey.py:327 - 检测到组合键，取消本次录音（防误触）
+2026-09-15 08:29:03 [INFO] hotkey.py:278 - ✅ 已收到键盘事件，输入监听权限正常（首个按键：Key.alt_r）
+2026-09-15 08:29:03 [INFO] hotkey.py:357 - 开始录音（语音改写，单击模式，再按一次热键结束）
+2026-09-15 08:29:03 [INFO] hotkey.py:169 - 通知：语音改写不可用 —— 请先在「设置 → 打开配置文件」配置 polish 的 base_url / api_key
+2026-09-15 08:29:03 [INFO] hotkey.py:278 - ✅ 已收到键盘事件，输入监听权限正常（首个按键：Key.alt）
+2026-09-15 08:29:03 [INFO] hotkey.py:357 - 开始录音（听写，单击模式，再按一次热键结束）
+2026-09-15 08:29:03 [INFO] hotkey.py:193 - 录音取消（录音中按下另一个热键）
+2026-09-15 08:29:03 [INFO] hotkey.py:357 - 开始录音（语音改写，单击模式，再按一次热键结束）
+2026-09-15 08:29:03 [INFO] hotkey.py:158 - 热键已暂停
+2026-09-15 08:29:03 [INFO] hotkey.py:278 - ✅ 已收到键盘事件，输入监听权限正常（首个按键：Key.alt）
+2026-09-15 08:29:03 [INFO] hotkey.py:158 - 热键已恢复
+2026-09-15 08:29:03 [INFO] hotkey.py:357 - 开始录音（听写，单击模式，再按一次热键结束）
+2026-09-15 08:29:03 [INFO] hotkey.py:193 - 录音取消（暂停热键）
+2026-09-15 08:29:03 [INFO] hotkey.py:158 - 热键已暂停
+2026-09-15 08:29:03 [WARNING] polisher.py:153 - 改写失败（openai）：请先在 settings.json 配置 polish.base_url（如 https://api.deepseek.com）
+2026-09-15 08:29:03 [INFO] settings.py:84 - 已加载设置：/var/folders/sd/87d31mjx5mg7gkx68rkpd1_m0000gn/T/tmpdy3_snqc/settings.json
+2026-09-15 08:29:03 [INFO] settings.py:94 - 设置已保存：/var/folders/sd/87d31mjx5mg7gkx68rkpd1_m0000gn/T/tmpdy3_snqc/settings.json
+2026-09-15 08:29:03 [INFO] settings.py:84 - 已加载设置：/var/folders/sd/87d31mjx5mg7gkx68rkpd1_m0000gn/T/tmpdy3_snqc/settings.json
+2026-09-15 08:29:03 [WARNING] polisher.py:113 - 未知润色 provider: 'nope'，跳过润色
+2026-09-15 08:29:03 [WARNING] polisher.py:116 - 润色失败（openai），使用原始转写：请先在 settings.json 配置 polish.base_url（如 https://api.deepseek.com）
+2026-09-15 08:29:03 [INFO] history.py:54 - 已加载历史 1 条（累计 1 次 / 6 字）
+2026-09-15 08:29:03 [INFO] history.py:54 - 已加载历史 1 条（累计 1 次 / 6 字）
+2026-09-15 08:29:04 [INFO] paster.py:114 - 已粘贴 4 字符
+2026-09-15 08:29:05 [INFO] paster.py:114 - 已粘贴 4 字符
+2026-09-15 08:29:05 [INFO] paster.py:105 - 粘贴跳过：文本为空

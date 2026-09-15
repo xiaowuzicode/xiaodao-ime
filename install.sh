@@ -5,6 +5,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/xiaowuzicode/xiaodao-ime/main/install.sh | bash
 #   git clone 后在仓库根目录执行：bash install.sh
 #
+# 说明：安装的是 Python 版（legacy/）。Rust + Tauri 版（rust/）发布后本脚本改为下载 Release 包。
 # 做的事：clone/更新代码 → venv 装依赖 → 预下载语音模型（失败不阻塞）
 #         → 打包成独立 .app → 装入 /Applications 并启动。
 # 装完只剩一步人工操作：到「系统设置 → 隐私与安全性」授三项权限。
@@ -28,7 +29,7 @@ python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' || {
   exit 1; }
 
 # 若已在仓库根目录内执行（bash install.sh），就地安装；否则 clone 到 $DIR
-if [[ -f "./install.sh" && -f "./requirements.txt" && -d "./xiaodao_ime" ]]; then
+if [[ -f "./install.sh" && -f "./legacy/requirements.txt" && -d "./legacy/xiaodao_ime" ]]; then
   DIR="$(pwd)"
   echo "==> 检测到当前目录即仓库，就地安装：$DIR"
 elif [[ -d "$DIR/.git" ]]; then
@@ -38,7 +39,7 @@ else
   echo "==> 获取代码：$DIR"
   git clone --depth 1 "$REPO" "$DIR"
 fi
-cd "$DIR"
+cd "$DIR/legacy"
 
 echo "==> 创建 venv 并安装依赖"
 [[ -x .venv/bin/python ]] || python3 -m venv .venv

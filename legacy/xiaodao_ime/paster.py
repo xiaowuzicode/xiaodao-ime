@@ -5,6 +5,7 @@
 """
 import threading
 import time
+from typing import Optional
 
 from xiaodao_ime import platform as _platform
 from xiaodao_ime.config import CLIPBOARD_RESTORE_DELAY
@@ -13,10 +14,43 @@ from xiaodao_ime.logger import get_logger
 log = get_logger(__name__)
 
 
-def grab_selection():
-    """抓取当前焦点 App 中选中的文本。
+class SelectionCapture:
+    """一次选区替换的剪贴板事务。
 
-    返回 (选中文本或 None, 原剪贴板内容)。原剪贴板内容由调用方负责最终恢复。
+    调用方只关心是否抓到文本，以及最后要替换成什么。哨兵、原剪贴板和
+    延迟恢复都留在这个 module 的 implementation 里，避免把所有权协议
+    泄漏给改写流程。
+    """
+
+    def __init__(self, text: Optional[str], original) -> None:  # noqa: ANN001
+        self.text = text
+        self._original = original
+        self._settled = False
+
+    def replace(self, text: str) -> bool:
+        """替换选区，并把原剪贴板交给粘贴流程延迟恢复。"""
+        if self._settled:
+            log.warning("选区事务已经结束，跳过重复替换")
+            return False
+        pasted = paste_text(text, restore_to=self._original)
+        self._settled = True
+        if not pasted:
+            restore_clipboard(self._original)
+        return pasted
+
+    def restore(self) -> None:
+        """在未完成替换时立即归还原剪贴板，可安全重复调用。"""
+        if self._settled:
+            return
+        self._settled = True
+        restore_clipboard(self._original)
+
+
+def capture_selection() -> SelectionCapture:
+    """抓取当前焦点 App 中选中的文本，返回负责清理的事务 module。
+
+    即使没有选区或系统复制失败，调用方也只需在 finally 中调用 restore()，
+    不需要再知道哨兵和原剪贴板的细节。
     """
     backend = _platform.backend
     original = backend.read_clipboard()
@@ -28,11 +62,11 @@ def grab_selection():
         time.sleep(0.25)
         copied = backend.read_clipboard()
         if not copied or copied == sentinel:
-            return None, original
-        return copied, original
+            return SelectionCapture(None, original)
+        return SelectionCapture(copied, original)
     except Exception as e:
         log.warning("抓取选区失败：%s", e)
-        return None, original
+        return SelectionCapture(None, original)
 
 
 def restore_clipboard(original) -> None:

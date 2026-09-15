@@ -8,12 +8,12 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/chengang/xiaodao-ime/.venv/bin/python</string>
-        <string>/Users/chengang/xiaodao-ime/app.py</string>
+        <string>/Users/chengang/xiaodao-ime/legacy/.venv/bin/python</string>
+        <string>/Users/chengang/xiaodao-ime/legacy/app.py</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/chengang/xiaodao-ime</string>
+    <string>/Users/chengang/xiaodao-ime/legacy</string>
 
     <key>RunAtLoad</key>
     <true/>

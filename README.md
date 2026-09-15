@@ -76,7 +76,7 @@ curl -fsSL https://raw.githubusercontent.com/xiaowuzicode/xiaodao-ime/main/insta
 
 ```bash
 git clone https://github.com/xiaowuzicode/xiaodao-ime.git && cd xiaodao-ime
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+cd legacy && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 # 下载模型（241MB，一次性；国内网络前面加 HF_ENDPOINT=https://hf-mirror.com）
 .venv/bin/python -c "from huggingface_hub import hf_hub_download; \
@@ -209,7 +209,7 @@ xiaodao_ime/                     核心层（平台无关）
 
 实测（Apple M4 Pro，Metal）：模型加载 ~0.2s（常驻）；3.5s 语音稳态转写 **36ms**。Windows 走 CPU 推理，速度稍慢但伪流式间隔会自适应。
 
-测试：`python test_hotkey.py`（状态机）、`python test_paster.py`（选区/粘贴/HUD）、`python test_polish.py`（润色）、`test_transcribe.py`（say 合成语音端到端，仅 Mac）。CI 在 macOS 与 Windows 双平台跑测试并自动构建 Windows 包。
+Python 版代码已整体移入 `legacy/`（目录结构如下，路径前加 `legacy/`）。测试：`cd legacy && python test_hotkey.py`（状态机）、`python test_paster.py`（选区/粘贴/HUD）、`python test_polish.py`（润色）、`test_transcribe.py`（say 合成语音端到端，仅 Mac）。CI 在 macOS 与 Windows 双平台跑测试并自动构建 Windows 包。
 
 路线图与详细对标见 [ROADMAP.md](ROADMAP.md)。觉得有用的话，点个 ⭐ 是对开发最大的支持。
 
