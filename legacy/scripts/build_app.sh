@@ -20,11 +20,11 @@ rm -rf build "dist/XiaodaoIME" "dist/XiaodaoIME.app" "dist/$APP_NAME.app"
 
 "$PY/pyinstaller" --noconfirm --clean --windowed \
   --name XiaodaoIME \
-  --icon "$ROOT/resources/icon.icns" \
+  --icon "$ROOT/../resources/icon.icns" \
   --osx-bundle-identifier ai.xiaodao.ime \
   --collect-all transcribe_cpp \
   --collect-all transcribe_cpp_native \
-  --add-data "$ROOT/resources/menubar:resources/menubar" \
+  --add-data "$ROOT/../resources/menubar:resources/menubar" \
   app.py
 
 APP="dist/XiaodaoIME.app"

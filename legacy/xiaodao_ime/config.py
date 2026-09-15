@@ -57,6 +57,9 @@ CLIPBOARD_RESTORE_DELAY = 0.4
 # 造型改动见 scripts/gen_menubar_icons.py，录音态是唯一彩色图标）。
 # PyInstaller 冻结时资源在 _MEIPASS（build_app.sh 用 --add-data 收入）
 _RES_ROOT = getattr(sys, "_MEIPASS", PROJECT_ROOT)
+# Python 版已移入 legacy/，共享资源仍在仓库根 resources/
+if not os.path.isdir(os.path.join(_RES_ROOT, "resources")):
+    _RES_ROOT = os.path.dirname(PROJECT_ROOT)
 MENUBAR_ICON_DIR = os.path.join(_RES_ROOT, "resources", "menubar")
 ICON_IDLE = os.path.join(MENUBAR_ICON_DIR, "idle.png")
 ICON_RECORDING = os.path.join(MENUBAR_ICON_DIR, "recording.png")

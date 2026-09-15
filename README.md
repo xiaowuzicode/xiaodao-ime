@@ -76,7 +76,7 @@ curl -fsSL https://raw.githubusercontent.com/xiaowuzicode/xiaodao-ime/main/insta
 
 ```bash
 git clone https://github.com/xiaowuzicode/xiaodao-ime.git && cd xiaodao-ime
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+cd legacy && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 # 下载模型（241MB，一次性；国内网络前面加 HF_ENDPOINT=https://hf-mirror.com）
 .venv/bin/python -c "from huggingface_hub import hf_hub_download; \
@@ -177,6 +177,17 @@ ollama     http://localhost:11434/v1          (全离线，无需 key)
 | 场景感知（按 App 切风格） | ✅ | ❌ | ✅（其王牌功能） |
 | 可审计 | ✅ 开源 | ❌ | ❌ |
 
+## Rust 版（v1.0，Tauri 2，进行中）
+
+Python 版之外，`rust/` 目录下是同一产品的 **Rust + Tauri 2 重写**（分支 `feat/rust-tauri`）：单二进制、免 venv/PyInstaller、启动快、内存低，转写引擎仍是 transcribe.cpp + SenseVoice（官方 Rust 绑定，本机稳态 37ms）。核心层 `rust/crates/core` 无 UI 依赖、81 个单测（热键状态机逐条移植自 Python 测试）；托盘 / 透明不抢焦点 HUD / 设置窗口由 Tauri 提供，双平台同一套代码。
+
+```bash
+# 本地构建（需 Rust 1.95+、cmake、pnpm；首次编译 ggml 约 3 分钟）
+cd rust/app && pnpm install && pnpm tauri build      # 产物：rust/target/release/bundle/
+```
+
+设置文件与数据目录与 Python 打包版**完全相同**（`~/Library/Application Support/xiaodao-ime`），老用户无缝切换。方案、行为对等清单与阶段见 [docs/rust-migration.md](docs/rust-migration.md)。
+
 ## 架构（跨平台分层）
 
 ```
@@ -198,7 +209,7 @@ xiaodao_ime/                     核心层（平台无关）
 
 实测（Apple M4 Pro，Metal）：模型加载 ~0.2s（常驻）；3.5s 语音稳态转写 **36ms**。Windows 走 CPU 推理，速度稍慢但伪流式间隔会自适应。
 
-测试：`python test_hotkey.py`（状态机）、`python test_paster.py`（选区/粘贴/HUD）、`python test_polish.py`（润色）、`test_transcribe.py`（say 合成语音端到端，仅 Mac）。CI 在 macOS 与 Windows 双平台跑测试并自动构建 Windows 包。
+Python 版代码已整体移入 `legacy/`（目录结构如下，路径前加 `legacy/`）。测试：`cd legacy && python test_hotkey.py`（状态机）、`python test_paster.py`（选区/粘贴/HUD）、`python test_polish.py`（润色）、`test_transcribe.py`（say 合成语音端到端，仅 Mac）。CI 在 macOS 与 Windows 双平台跑测试并自动构建 Windows 包。
 
 路线图与详细对标见 [ROADMAP.md](ROADMAP.md)。觉得有用的话，点个 ⭐ 是对开发最大的支持。
 

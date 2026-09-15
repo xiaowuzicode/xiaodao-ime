@@ -1,0 +1,326 @@
+/* 小岛AI输入法 —— HUD 悬浮窗 + 设置窗口样式。
+   约束：全部资源本地（不引任何外部字体/CDN）；禁止紫色与渐变；深浅色自适应。 */
+
+:root {
+  --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+    "Segoe UI", system-ui, sans-serif;
+  --accent: #007aff;
+  --bg: #f2f2f6;
+  --card: #ffffff;
+  --text: #1c1c1e;
+  --text-dim: #6b6b70;
+  --line: #d9d9de;
+  --field: #ffffff;
+  --danger: #d0342c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #3b8cff;
+    --bg: #1c1c1e;
+    --card: #2c2c2e;
+    --text: #f2f2f7;
+    --text-dim: #9a9aa0;
+    --line: #3d3d40;
+    --field: #232325;
+    --danger: #ff6961;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------- HUD 悬浮窗（420x52，透明背景 + 深色圆角卡片） ---------------- */
+
+.hud-body {
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+.hud {
+  width: 420px;
+  height: 52px;
+  border-radius: 13px;
+  /* 对齐 Python 版：colorWithCalibratedWhite(0.08, alpha 0.92) */
+  background: rgba(20, 20, 20, 0.92);
+  padding: 8px 14px 7px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 3px;
+  overflow: hidden;
+}
+
+.hud-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+  font-size: 13px;
+  line-height: 20px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.hud-prefix {
+  flex: none;
+  font-size: 11px;
+  line-height: 16px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.hud-prefix[hidden] {
+  display: none;
+}
+
+.hud-timer {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  min-width: 26px;
+}
+
+.hud-wave {
+  flex: none;
+  width: 60px;
+  height: 18px;
+}
+
+.hud-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+.hud-hint {
+  height: 14px;
+  font-size: 10px;
+  line-height: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ---------------- 设置窗口 ---------------- */
+
+.settings-body {
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.settings {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 16px 18px 8px;
+}
+
+.loading {
+  color: var(--text-dim);
+  padding: 24px 4px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 4px 14px;
+  margin-bottom: 14px;
+}
+
+.card > h2 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 12px 0 8px;
+}
+
+.card > .card-desc {
+  margin: -4px 0 10px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+}
+
+.card > h2 + .row,
+.card > .card-desc + .row,
+.card > .row:first-child {
+  border-top: none;
+}
+
+.row > label.row-label {
+  flex: none;
+  width: 116px;
+  text-align: right;
+  color: var(--text-dim);
+}
+
+.row > .row-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.row.column {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="number"],
+select,
+textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 7px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.45;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 72px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+select {
+  cursor: pointer;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.check input {
+  flex: none;
+  accent-color: var(--accent);
+  margin: 0;
+}
+
+.radio-group {
+  display: flex;
+  gap: 16px;
+}
+
+.hint {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.kv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kv-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.kv-row input,
+.kv-row select {
+  flex: 1 1 0;
+}
+
+.btn {
+  font: inherit;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 14px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  border-color: var(--text-dim);
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  filter: brightness(0.94);
+}
+
+.btn-mini {
+  flex: none;
+  padding: 4px 9px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.btn-danger {
+  color: var(--danger);
+}
+
+.settings-footer {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.settings-note {
+  flex: 1 1 auto;
+  color: var(--text-dim);
+  font-size: 11px;
+}

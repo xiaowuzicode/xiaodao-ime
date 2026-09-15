@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- 录音权限说明：系统首次弹窗时展示给用户 -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>录音用于本地语音识别，不上传</string>
+    <!-- 菜单栏常驻应用：不在 Dock 显示图标 -->
+    <key>LSUIElement</key>
+    <true/>
+</dict>
+</plist>

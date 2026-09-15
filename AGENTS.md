@@ -13,7 +13,7 @@
 curl -fsSL https://raw.githubusercontent.com/xiaowuzicode/xiaodao-ime/main/install.sh | bash
 ```
 
-已 clone 的话在仓库根目录 `bash install.sh` 即可（就地安装，幂等，可重复执行）。
+已 clone 的话在仓库根目录 `bash install.sh` 即可（装的是 `legacy/` 的 Python 版；Rust 版见下文）（就地安装，幂等，可重复执行）。
 
 **装完必须提醒用户手动做一步（你无法代劳）**：
 系统设置 → 隐私与安全性，为「小岛AI输入法」开启 **输入监听 / 辅助功能 / 麦克风**，
@@ -33,13 +33,14 @@ curl -fsSL https://raw.githubusercontent.com/xiaowuzicode/xiaodao-ime/main/insta
 irm https://raw.githubusercontent.com/xiaowuzicode/xiaodao-ime/main/install.ps1 | iex
 ```
 
-自动下载最新 Release 的 `XiaodaoIME-windows-x64.zip` 装到 `%LOCALAPPDATA%\Programs\XiaodaoIME` 并启动。备选：Releases 页手动下载解压，或 `pip install -r requirements.txt` 后跑 `scripts\build_app_windows.bat` 本地构建。
+自动下载最新 Release 的 `XiaodaoIME-windows-x64.zip` 装到 `%LOCALAPPDATA%\Programs\XiaodaoIME` 并启动。备选：Releases 页手动下载解压，或在 `legacy/` 下 `pip install -r requirements.txt` 后跑 `scripts\build_app_windows.bat` 本地构建。
 
 默认热键：右 Ctrl 听写、F8 改写。首次启动自动下载模型（241MB）。SmartScreen 提示属正常（未签名 exe）。
 
 ## 运行与测试
 
 ```bash
+cd legacy                   # Python 版已整体移入 legacy/
 ./start.sh                  # 终端直跑（调试用；注意权限会挂在终端上）
 python test_hotkey.py       # 热键状态机（无需权限，CI 双平台跑）
 python test_paster.py       # 选区/粘贴/HUD 流程
@@ -47,9 +48,17 @@ python test_polish.py       # 润色（无 key 时走 mock）
 python test_transcribe.py   # say 合成语音端到端（仅 Mac，需模型）
 ```
 
+## Rust 版（rust/，Tauri 2）
+
+- 工作区 `rust/`：`crates/core`（核心，无 UI 依赖）+ `app/`（Tauri 2，前端 vanilla TS）。方案见 `docs/rust-migration.md`。
+- 分层铁律同 Python 版：核心层只经 `platform::Platform` trait 触达系统 API；UI 只经 `types::{Hud, Events}` trait 接进来。
+- 校验：`cd rust && cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test -p xiaodao-core`；前端 `cd rust/app && pnpm build`。
+- **手动 cargo 构建必须带 feature**：`cd rust && cargo build -p xiaodao-ime --release --features custom-protocol`，否则二进制是 dev 模式去连 localhost:1420，HUD/设置窗全白（`pnpm tauri build` 会自动带）。
+- 真机 E2E 合成按键必须走 HID tap（`CGEventPost(kCGHIDEventTap)`），osascript 的 key code 事件 rdev 看不到。
+
 ## 改代码的纪律
 
-- **分层铁律**：`xiaodao_ime/` 核心层平台无关，禁止直接 import AppKit/Quartz/ctypes/winsound 等平台库；所有系统 API 调用只能进 `xiaodao_ime/platform/mac.py` 或 `win.py`（接口约定见 `platform/__init__.py`）。改核心逻辑时两个平台都要能跑。
+- **分层铁律**（Python 版，`legacy/`）：`xiaodao_ime/` 核心层平台无关，禁止直接 import AppKit/Quartz/ctypes/winsound 等平台库；所有系统 API 调用只能进 `xiaodao_ime/platform/mac.py` 或 `win.py`（接口约定见 `platform/__init__.py`）。改核心逻辑时两个平台都要能跑。
 - 用户配置在项目根 `settings.json`（gitignore 内），示例见 `settings.example.json`；改配置结构要同步两处。
 - 润色链路必须 **fail-open**：LLM 超时/报错一律回退原始转写文本，绝不能吞掉用户说的话。
 - 提交信息用中文，风格参考 `git log`（`feat:` / `fix:` / `docs:` / `build:` 前缀）。

@@ -57,26 +57,33 @@ def _with_backend(backend):
     return old
 
 
-def test_grab_selection_none():
+def test_capture_selection_none_restores_clipboard():
     old = _with_backend(FakeBackend(initial="用户原有内容"))
     try:
-        selection, original = paster.grab_selection()
-        assert selection is None            # 剪贴板仍是哨兵 => 没有选区
-        assert original == "用户原有内容"    # 原剪贴板被完整带回
+        capture = paster.capture_selection()
+        assert capture.text is None          # 剪贴板仍是哨兵 => 没有选区
+        capture.restore()
+        assert _platform.backend.clipboard == "用户原有内容"
     finally:
         _platform.backend = old
-    print("PASS: 无选区时哨兵检测")
+    print("PASS: 无选区时事务归还原剪贴板")
 
 
-def test_grab_selection_found():
+def test_capture_selection_replace_restores_clipboard():
     old = _with_backend(FakeBackend(initial="旧内容", copy_effect="选中的文字"))
     try:
-        selection, original = paster.grab_selection()
-        assert selection == "选中的文字"
-        assert original == "旧内容"
+        capture = paster.capture_selection()
+        assert capture.text == "选中的文字"
+        assert capture.replace("改写结果")
+        assert _platform.backend.pastes == 1
+        assert _platform.backend.clipboard == "改写结果"
+        capture.restore()  # replace 已接管延迟恢复，重复清理不能提前覆盖粘贴文本
+        assert _platform.backend.clipboard == "改写结果"
+        time.sleep(paster.CLIPBOARD_RESTORE_DELAY + 0.2)
+        assert _platform.backend.clipboard == "旧内容"
     finally:
         _platform.backend = old
-    print("PASS: 有选区时正确抓取")
+    print("PASS: 选区事务替换并归还原剪贴板")
 
 
 def test_paste_restores_clipboard():
@@ -128,8 +135,8 @@ def test_hud_compose():
 
 
 if __name__ == "__main__":
-    test_grab_selection_none()
-    test_grab_selection_found()
+    test_capture_selection_none_restores_clipboard()
+    test_capture_selection_replace_restores_clipboard()
     test_paste_restores_clipboard()
     test_hud_compose()
     print("\n平台无关层测试全部通过 ✅")

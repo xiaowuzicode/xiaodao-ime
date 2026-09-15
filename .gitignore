@@ -24,3 +24,12 @@ dist/
 data/
 build/
 *.spec
+
+# Python 版移入 legacy/ 后指向仓库根 models/ 的软链
+legacy/models
+
+# Rust / Tauri 构建产物与前端依赖
+rust/target/
+rust/app/node_modules/
+rust/app/dist/
+rust/app/src-tauri/gen/
